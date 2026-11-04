@@ -190,8 +190,40 @@ tbody tr:last-child td { border-bottom: 0; }
 .birthday-row small { margin-top: 3px; color: #a0aaa2; font-size: 8px; }
 .birthday-row > b { color: #a17d63; font-size: 9px; font-weight: 700; }
 .birthday-link { display: flex; align-items: center; gap: 5px; margin-top: 13px; padding: 10px 0 0; border: 0; border-top: 1px solid #f0f2ee; color: #66876c; background: none; font-size: 8px; font-weight: 700; }
-.page-footer { display: flex; justify-content: space-between; margin-top: 17px; color: #abb3ac; font-size: 8px; }
+.page-footer { display: flex; justify-content: space-between; margin-top: 17px; color: #7f8d83; font-size: 12px; }
 .page-footer b { color: #d99a86; }
+
+/* Ant Design data tables */
+.preschool-table { margin-top: 14px; }
+.preschool-table .ant-table { color: #718077; font-family: 'DM Sans', 'Nunito Sans', sans-serif; font-size: 14px; }
+.preschool-table .ant-table-container table { font-size: inherit; }
+.preschool-table .ant-table-thead > tr > th { padding: 13px 12px; border-bottom: 1px solid #eef0ec; color: #839087; background: #fff; font-size: 11px; font-weight: 700; letter-spacing: .4px; white-space: nowrap; }
+.preschool-table .ant-table-thead > tr > th::before { display: none !important; }
+.preschool-table .ant-table-tbody > tr > td { padding: 15px 12px; border-bottom: 1px solid #f1f3ef; color: #65756a; font-size: 14px; line-height: 1.5; }
+.preschool-table .ant-table-tbody > tr:last-child > td { border-bottom-color: transparent; }
+.preschool-table .ant-table-tbody > tr:hover > td { background: #fbfcfa !important; }
+.preschool-table .ant-table-cell { background: transparent; }
+.preschool-table .ant-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 0; margin: 15px 0 0 !important; color: #758279; font-size: 13px; }
+.preschool-table .ant-pagination-total-text { flex: 1; margin-right: 8px; color: #7d8980; font-size: 13px; }
+.preschool-table .ant-pagination .ant-pagination-item,
+.preschool-table .ant-pagination .ant-pagination-prev,
+.preschool-table .ant-pagination .ant-pagination-next,
+.preschool-table .ant-pagination .ant-select-selector { border-color: #e9eee8; }
+.preschool-table .ant-pagination .ant-pagination-item { min-width: 32px; height: 32px; line-height: 30px; }
+.preschool-table .ant-pagination .ant-pagination-item a { color: #6b7b70; }
+.preschool-table .ant-pagination .ant-pagination-item-active { border-color: #739775; background: #f3f7f1; }
+.preschool-table .ant-pagination .ant-pagination-item-active a { color: #47734e; }
+.preschool-table .ant-pagination .ant-pagination-options { margin-inline-start: 7px; }
+.preschool-table .ant-pagination .ant-select-selection-item,
+.preschool-table .ant-pagination .ant-select-arrow { color: #78867d; font-size: 13px; }
+.preschool-table-compact { margin-top: 8px; }
+.preschool-table-compact .ant-table-thead > tr > th { padding: 10px 8px; font-size: 10px; }
+.preschool-table-compact .ant-table-tbody > tr > td { padding: 10px 8px; font-size: 13px; }
+.preschool-table .student-cell strong { font-size: 14px; }
+.preschool-table .student-cell small { font-size: 12px; }
+.preschool-table .class-tag, .preschool-table .status-pill { font-size: 12px; }
+.preschool-table .ant-empty-description { color: #7d8980; font-size: 14px; }
+.preschool-table .ant-pagination .ant-pagination-item a { font-size: 13px; }
 
 /* Secondary screens */
 .listing-panel { padding: 19px 20px; }
@@ -355,6 +387,8 @@ tbody tr:last-child td { border-bottom: 0; }
   .listing-panel table { min-width: 560px; }
   .list-actions .select-button { flex: 0 0 auto; }
   .message-intro { padding: 13px; }
+  .preschool-table .ant-pagination { justify-content: flex-start; }
+  .preschool-table .ant-pagination-total-text { flex: 0 0 100%; }
 }
 @media (max-width: 420px) {
   .page-heading { align-items: center; }
@@ -368,7 +402,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .class-grid { grid-template-columns: 1fr; }
   .class-title { align-items: center; flex-direction: row; }
   .message-recipients { display: none; }
-  .page-footer { gap: 10px; font-size: 7px; }
+  .page-footer { gap: 10px; font-size: 11px; }
 }
 
 /* Demo sign-in and role-specific school portals */
@@ -461,6 +495,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .family-children { display: grid; gap: 5px; }
 .family-children > span { display: flex; align-items: center; gap: 6px; color: #5a6c60; font-size: 9px; }
 .family-children .avatar { width: 22px; height: 22px; flex-basis: 22px; font-size: 7px; }
+.family-class-tag { margin: 2px 4px 2px 0; }
 .schedule-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; padding: 14px 17px; border: 1px solid #e9eee5; border-radius: 9px; background: #eff4e9; }
 .schedule-banner-icon { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 10px; background: #fff; font-size: 20px; }
 .schedule-banner > div:nth-child(2) { flex: 1; }

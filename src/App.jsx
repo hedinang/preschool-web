@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import Table from 'antd/es/table';
 
 const initialStudents = [
   { name: 'Nguyễn Minh Khôi', gender: 'Nam', age: 4, classroom: 'Mầm 1', parent: 'Chị Ngọc Anh', phone: '0912 345 678', status: 'Đã đến', avatar: 'MK', color: 'peach' },
@@ -9,6 +10,37 @@ const initialStudents = [
   { name: 'Đỗ Nhật Nam', gender: 'Nam', age: 5, classroom: 'Lá 2', parent: 'Anh Nhật Quang', phone: '0918 765 432', status: 'Đã đến', avatar: 'NN', color: 'pink' },
 ];
 
+const additionalStudentNames = [
+  'Nguyễn Minh Châu', 'Trần Đức Minh', 'Lê Bảo Anh', 'Phạm Khánh An', 'Vũ Minh Nhật', 'Đỗ Ngọc Mai',
+  'Nguyễn Gia Bảo', 'Trần Hà My', 'Lê Hoàng Long', 'Phạm Ngọc Diệp', 'Vũ Tuệ Nhi', 'Đỗ Quang Huy',
+  'Nguyễn Hải Đăng', 'Trần Minh Khang', 'Lê Phương Thảo', 'Phạm Thiên An', 'Vũ Anh Thư', 'Đỗ Gia Linh',
+  'Nguyễn Quốc Bảo', 'Trần Ánh Dương', 'Lê Nhật Minh', 'Phạm Quỳnh Chi', 'Vũ Đức Mạnh', 'Đỗ Minh Tâm',
+  'Nguyễn Khánh Vy', 'Trần Gia Huy', 'Lê Thiên Phúc', 'Phạm Bảo Trâm', 'Vũ Minh Quân', 'Đỗ Phương Nhi',
+  'Nguyễn Tuấn Kiệt', 'Trần Ngọc Hà', 'Lê Gia Minh', 'Phạm Hoàng Yến', 'Vũ Bảo Châu', 'Đỗ Anh Khoa',
+  'Nguyễn Hà Linh', 'Trần Nhật Hào', 'Lê Minh Thư', 'Phạm Gia Hân', 'Vũ Quốc Khánh', 'Đỗ Thanh Tâm',
+];
+
+const extraStudents = additionalStudentNames.map((name, index) => {
+  const parts = name.split(/\s+/);
+  const initials = `${parts[0][0]}${parts[parts.length - 1][0]}`.toLocaleUpperCase('vi-VN');
+  const rooms = ['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'];
+  const parentNames = ['Chị Thu Hà', 'Anh Minh Quân', 'Chị Phương Linh', 'Anh Hoàng Long', 'Chị Bảo Trân', 'Anh Quốc Bảo'];
+  const phone = `09${String(10 + (index % 90)).padStart(2, '0')} ${String(120 + index).padStart(3, '0')} ${String(400 + index).slice(-3)}`;
+  return {
+    name,
+    gender: index % 2 === 0 ? 'Nam' : 'Nữ',
+    age: 3 + (index % 3),
+    classroom: rooms[index % rooms.length],
+    parent: `${parentNames[index % parentNames.length]} ${Math.floor(index / parentNames.length) + 1}`,
+    phone,
+    status: index % 7 === 0 ? 'Xin nghỉ' : 'Đã đến',
+    avatar: initials,
+    color: ['peach', 'lilac', 'mint', 'blue', 'yellow', 'pink'][index % 6],
+  };
+});
+
+initialStudents.push(...extraStudents);
+
 const teachers = [
   { name: 'Mai Phương', title: 'Giáo viên chủ nhiệm', classroom: 'Mầm 1', phone: '0901 234 567', email: 'maiphuong@annhien.vn', experience: '6 năm', avatar: 'MP', color: 'mint' },
   { name: 'Thu Hằng', title: 'Giáo viên chủ nhiệm', classroom: 'Mầm 2', phone: '0902 345 678', email: 'thuhang@annhien.vn', experience: '5 năm', avatar: 'TH', color: 'peach' },
@@ -17,6 +49,23 @@ const teachers = [
   { name: 'Ngọc Lan', title: 'Giáo viên chủ nhiệm', classroom: 'Lá 1', phone: '0905 678 901', email: 'ngoclan@annhien.vn', experience: '7 năm', avatar: 'NL', color: 'yellow' },
   { name: 'Thanh Vân', title: 'Giáo viên chủ nhiệm', classroom: 'Lá 2', phone: '0906 789 012', email: 'thanhvan@annhien.vn', experience: '3 năm', avatar: 'TV', color: 'blue' },
 ];
+
+const extraTeacherNames = ['Hồng Nhung', 'Thảo Vy', 'Kim Ngân', 'Hoài An', 'Bích Ngọc', 'Phương Uyên', 'Hải Yến', 'Tuyết Mai', 'Diệu Linh', 'Quỳnh Anh', 'Khánh Hòa', 'Thanh Tâm'];
+teachers.push(...extraTeacherNames.map((name, index) => {
+  const parts = name.split(/\s+/);
+  const avatar = `${parts[0][0]}${parts[parts.length - 1][0]}`.toLocaleUpperCase('vi-VN');
+  const classroom = ['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'][index % 6];
+  return {
+    name,
+    title: index % 3 === 0 ? 'Giáo viên bộ môn' : 'Trợ giảng',
+    classroom,
+    phone: `090${index + 7} ${String(123 + index).padStart(3, '0')} ${String(567 + index).slice(-3)}`,
+    email: `${name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s/g, '')}@annhien.vn`,
+    experience: `${2 + (index % 8)} năm`,
+    avatar,
+    color: ['mint', 'peach', 'lilac', 'pink', 'yellow', 'blue'][index % 6],
+  };
+}));
 
 const demoAccounts = {
   admin: { role: 'admin', name: 'Lan Anh', title: 'Quản trị viên', email: 'admin@annhien.vn', password: '123456', avatar: 'LA', color: 'peach' },
@@ -87,6 +136,25 @@ function Icon({ name, size = 20, className = '' }) {
 
 function Avatar({ initials, color = 'mint', size = '' }) {
   return <span className={`avatar avatar-${color} ${size ? `avatar-${size}` : ''}`}>{initials}</span>;
+}
+
+function PagedTable({ columns, dataSource, rowKey, compact = false }) {
+  return <Table
+    className={`preschool-table ${compact ? 'preschool-table-compact' : ''}`}
+    columns={columns}
+    dataSource={dataSource}
+    rowKey={rowKey}
+    size="small"
+    scroll={{ x: 'max-content' }}
+    locale={{ emptyText: 'Không có dữ liệu phù hợp.' }}
+    pagination={compact ? false : {
+      defaultPageSize: 8,
+      pageSizeOptions: ['8', '16', '32'],
+      showSizeChanger: true,
+      showTotal: (total, range) => `Hiển thị ${range[0]}–${range[1]} trong ${total} mục`,
+      locale: { items_per_page: ' / trang', jump_to: 'Đến', jump_to_confirm: 'Xác nhận', page: 'Trang' },
+    }}
+  />;
 }
 
 function App() {
@@ -334,10 +402,17 @@ function RoleOverview({ user, students, onNavigate }) {
 
 function TeachersPage({ teachers: teacherRows, query, setQuery, onAdd }) {
   const filtered = teacherRows.filter((teacher) => `${teacher.name} ${teacher.classroom} ${teacher.email}`.toLowerCase().includes(query.toLowerCase()));
+  const columns = [
+    { title: 'GIÁO VIÊN', dataIndex: 'name', key: 'name', render: (_, teacher) => <div className="student-cell"><Avatar initials={teacher.avatar} color={teacher.color} /><span><strong>Cô {teacher.name}</strong><small>{teacher.email}</small></span></div> },
+    { title: 'VAI TRÒ', dataIndex: 'title', key: 'title' },
+    { title: 'LỚP CHỦ NHIỆM', dataIndex: 'classroom', key: 'classroom', render: (classroom) => <span className="class-tag">{classroom}</span> },
+    { title: 'KINH NGHIỆM', dataIndex: 'experience', key: 'experience' },
+    { title: 'LIÊN HỆ', dataIndex: 'phone', key: 'phone' },
+  ];
   return <>
     <PageHeading eyebrow="ĐỘI NGŨ NHÀ TRƯỜNG" title="Giáo viên" description="Quản lý thông tin giáo viên và lớp chủ nhiệm tại An Nhiên." action={<button className="primary-button" onClick={onAdd}><Icon name="plus" size={18} /> Thêm giáo viên</button>} />
     <div className="class-summary teacher-summary"><div><span>Đội ngũ giáo viên</span><strong>{teacherRows.length} <small>cô giáo</small></strong></div><div><span>Lớp đang phụ trách</span><strong>{new Set(teacherRows.map((teacher) => teacher.classroom)).size} <small>lớp</small></strong></div><div><span>Năm học</span><strong>2026 <small>– 2027</small></strong></div><div><span>Hỗ trợ giảng dạy</span><strong>10 <small>nhân sự</small></strong></div></div>
-    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách giáo viên <span className="count-badge">{filtered.length}</span></h3><p>Thông tin liên hệ và lớp chủ nhiệm</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp, email..." /></label></div><div className="table-scroll"><table><thead><tr><th>GIÁO VIÊN</th><th>VAI TRÒ</th><th>LỚP CHỦ NHIỆM</th><th>KINH NGHIỆM</th><th>LIÊN HỆ</th></tr></thead><tbody>{filtered.map((teacher) => <tr key={teacher.email}><td><div className="student-cell"><Avatar initials={teacher.avatar} color={teacher.color} /><span><strong>Cô {teacher.name}</strong><small>{teacher.email}</small></span></div></td><td>{teacher.title}</td><td><span className="class-tag">{teacher.classroom}</span></td><td>{teacher.experience}</td><td>{teacher.phone}</td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty-state">Không tìm thấy giáo viên phù hợp.</div>}</div></section>
+    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách giáo viên <span className="count-badge">{filtered.length}</span></h3><p>Thông tin liên hệ và lớp chủ nhiệm</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp, email..." /></label></div><PagedTable columns={columns} dataSource={filtered} rowKey="email" /></section>
   </>;
 }
 
@@ -348,10 +423,17 @@ function ParentsPage({ students, query, setQuery }) {
     groups[key].children.push(student);
     return groups;
   }, {})).filter((family) => `${family.name} ${family.phone} ${family.children.map((child) => child.name).join(' ')}`.toLowerCase().includes(query.toLowerCase()));
+  const columns = [
+    { title: 'PHỤ HUYNH', dataIndex: 'name', key: 'name', render: (name) => <div className="student-cell"><Avatar initials={name.split(' ').map((part) => part[0]).slice(-2).join('')} color="lilac" /><span><strong>{name}</strong><small>Phụ huynh</small></span></div> },
+    { title: 'ĐIỆN THOẠI', dataIndex: 'phone', key: 'phone' },
+    { title: 'HỌC SINH ĐANG THEO HỌC', dataIndex: 'children', key: 'children', render: (children) => <div className="family-children">{children.map((child) => <span key={child.name}><Avatar initials={child.avatar} color={child.color} />{child.name}</span>)}</div> },
+    { title: 'LỚP', dataIndex: 'children', key: 'classroom', render: (children) => children.map((child) => <span className="class-tag family-class-tag" key={child.name}>{child.classroom}</span>) },
+    { title: 'TÌNH TRẠNG', key: 'status', render: () => <span className="status-pill status-present"><i />Đang theo học</span> },
+  ];
   return <>
     <PageHeading eyebrow="KẾT NỐI GIA ĐÌNH & NHÀ TRƯỜNG" title="Phụ huynh" description="Thông tin phụ huynh được liên kết trực tiếp với hồ sơ học sinh." />
     <div className="family-summary"><span><Icon name="family" size={19} /> Đang quản lý</span><strong>{families.length} <small>gia đình</small></strong><p>Mỗi hồ sơ phụ huynh được tổng hợp từ thông tin liên hệ của các bé.</p></div>
-    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách phụ huynh <span className="count-badge">{families.length}</span></h3><p>Thông tin gia đình và các bé đang theo học</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm phụ huynh hoặc học sinh..." /></label></div><div className="table-scroll"><table><thead><tr><th>PHỤ HUYNH</th><th>ĐIỆN THOẠI</th><th>HỌC SINH ĐANG THEO HỌC</th><th>LỚP</th><th>TÌNH TRẠNG</th></tr></thead><tbody>{families.map((family) => <tr key={family.name}><td><div className="student-cell"><Avatar initials={family.name.split(' ').map((part) => part[0]).slice(-2).join('')} color="lilac" /><span><strong>{family.name}</strong><small>Phụ huynh</small></span></div></td><td>{family.phone}</td><td><div className="family-children">{family.children.map((child) => <span key={child.name}><Avatar initials={child.avatar} color={child.color} />{child.name}</span>)}</div></td><td>{family.children.map((child) => <span className="class-tag" key={child.name}>{child.classroom}</span>)}</td><td><span className="status-pill status-present"><i />Đang theo học</span></td></tr>)}</tbody></table>{families.length === 0 && <div className="empty-state">Không tìm thấy phụ huynh phù hợp.</div>}</div></section>
+    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách phụ huynh <span className="count-badge">{families.length}</span></h3><p>Thông tin gia đình và các bé đang theo học</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm phụ huynh hoặc học sinh..." /></label></div><PagedTable columns={columns} dataSource={families} rowKey="name" /></section>
   </>;
 }
 
@@ -434,42 +516,14 @@ function StatCard({ label, value, suffix, change, icon, tone, foot }) {
 }
 
 function StudentTable({ students, compact = false }) {
-  return (
-    <div className="table-scroll">
-      <table className={compact ? 'compact-table' : ''}>
-        <thead>
-          <tr>
-            <th>HỌC SINH</th>
-            <th>LỚP</th>
-            {!compact && <th>PHỤ HUYNH</th>}
-            <th>TRẠNG THÁI</th>
-            {!compact && <th>LIÊN HỆ</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {students.map((student, index) => (
-            <tr key={`${student.name}-${index}`}>
-              <td>
-                <div className="student-cell">
-                  <Avatar initials={student.avatar} color={student.color} />
-                  <span><strong>{student.name}</strong><small>{student.gender} · {student.age} tuổi</small></span>
-                </div>
-              </td>
-              <td><span className="class-tag">{student.classroom}</span></td>
-              {!compact && <td>{student.parent}</td>}
-              <td>
-                <span className={`status-pill ${student.status === 'Đã đến' ? 'status-present' : student.status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}>
-                  <i />{student.status}
-                </span>
-              </td>
-              {!compact && <td>{student.phone}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {students.length === 0 && <div className="empty-state">Không tìm thấy học sinh phù hợp.</div>}
-    </div>
-  );
+  const columns = [
+    { title: 'HỌC SINH', dataIndex: 'name', key: 'name', render: (_, student) => <div className="student-cell"><Avatar initials={student.avatar} color={student.color} /><span><strong>{student.name}</strong><small>{student.gender} · {student.age} tuổi</small></span></div> },
+    { title: 'LỚP', dataIndex: 'classroom', key: 'classroom', render: (classroom) => <span className="class-tag">{classroom}</span> },
+    !compact && { title: 'PHỤ HUYNH', dataIndex: 'parent', key: 'parent' },
+    { title: 'TRẠNG THÁI', dataIndex: 'status', key: 'status', render: (status) => <span className={`status-pill ${status === 'Đã đến' ? 'status-present' : status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}><i />{status}</span> },
+    !compact && { title: 'LIÊN HỆ', dataIndex: 'phone', key: 'phone' },
+  ].filter(Boolean);
+  return <PagedTable columns={columns} dataSource={students} rowKey="name" compact={compact} />;
 }
 
 function StudentsPage({ students, query, setQuery, onAdd, canAdd }) {
@@ -496,22 +550,38 @@ function ClassesPage({ onToast, user }) {
 function AttendancePage({ students, onToast }) {
   const [statuses, setStatuses] = useState(() => Object.fromEntries(students.map((student) => [student.name, student.status])));
   const toggle = (name) => setStatuses((current) => ({ ...current, [name]: current[name] === 'Đã đến' ? 'Xin nghỉ' : 'Đã đến' }));
-  const present = Object.values(statuses).filter((status) => status === 'Đã đến').length;
-  return <><PageHeading eyebrow="ĐIỂM DANH HẰNG NGÀY" title="Điểm danh" description="Theo dõi tình hình đến lớp của các bé trong ngày." action={<button className="primary-button" onClick={() => onToast('Đã lưu điểm danh hôm nay')}><Icon name="check" size={18} /> Lưu điểm danh</button>} /><div className="attendance-banner"><div className="today-calendar"><span>THÁNG 11</span><strong>04</strong><small>THỨ TƯ</small></div><div><h3>Điểm danh ngày hôm nay</h3><p>Thứ Tư, ngày 04 tháng 11 năm 2026 · Cập nhật lần cuối 08:42</p></div><span className="attendance-total"><strong>{present}<small>/{students.length}</small></strong><span>bé đã đến lớp</span></span></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Sĩ số học sinh <span className="count-badge">{students.length}</span></h3><p>Chạm vào trạng thái để cập nhật nhanh</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị tất cả các lớp')}>Tất cả lớp <Icon name="down" size={15} /></button></div><div className="table-scroll"><table><thead><tr><th>HỌC SINH</th><th>LỚP</th><th>GIỜ ĐẾN</th><th>TRẠNG THÁI</th><th>CẬP NHẬT</th></tr></thead><tbody>{students.map((student, index) => { const status = statuses[student.name]; return <tr key={`${student.name}-${index}`}><td><div className="student-cell"><Avatar initials={student.avatar} color={student.color} /><span><strong>{student.name}</strong><small>{student.gender} · {student.age} tuổi</small></span></div></td><td><span className="class-tag">{student.classroom}</span></td><td>{status === 'Đã đến' ? ['07:42', '07:56', '08:02', '07:38'][index % 4] : '—'}</td><td><span className={`status-pill ${status === 'Đã đến' ? 'status-present' : status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}><i />{status}</span></td><td><button className="mark-button" onClick={() => toggle(student.name)}>{status === 'Đã đến' ? 'Xin nghỉ' : 'Đánh dấu có mặt'}</button></td></tr>; })}</tbody></table></div></section></>;
+  const present = students.filter((student) => (statuses[student.name] ?? student.status) === 'Đã đến').length;
+  const columns = [
+    { title: 'HỌC SINH', dataIndex: 'name', key: 'name', render: (_, student) => <div className="student-cell"><Avatar initials={student.avatar} color={student.color} /><span><strong>{student.name}</strong><small>{student.gender} · {student.age} tuổi</small></span></div> },
+    { title: 'LỚP', dataIndex: 'classroom', key: 'classroom', render: (classroom) => <span className="class-tag">{classroom}</span> },
+    { title: 'GIỜ ĐẾN', key: 'arrival', render: (_, student, index) => (statuses[student.name] ?? student.status) === 'Đã đến' ? ['07:42', '07:56', '08:02', '07:38'][index % 4] : '—' },
+    { title: 'TRẠNG THÁI', key: 'status', render: (_, student) => { const status = statuses[student.name] ?? student.status; return <span className={`status-pill ${status === 'Đã đến' ? 'status-present' : status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}><i />{status}</span>; } },
+    { title: 'CẬP NHẬT', key: 'action', render: (_, student) => { const status = statuses[student.name] ?? student.status; return <button className="mark-button" onClick={() => toggle(student.name)}>{status === 'Đã đến' ? 'Xin nghỉ' : 'Đánh dấu có mặt'}</button>; } },
+  ];
+  return <><PageHeading eyebrow="ĐIỂM DANH HẰNG NGÀY" title="Điểm danh" description="Theo dõi tình hình đến lớp của các bé trong ngày." action={<button className="primary-button" onClick={() => onToast('Đã lưu điểm danh hôm nay')}><Icon name="check" size={18} /> Lưu điểm danh</button>} /><div className="attendance-banner"><div className="today-calendar"><span>THÁNG 11</span><strong>04</strong><small>THỨ TƯ</small></div><div><h3>Điểm danh ngày hôm nay</h3><p>Thứ Tư, ngày 04 tháng 11 năm 2026 · Cập nhật lần cuối 08:42</p></div><span className="attendance-total"><strong>{present}<small>/{students.length}</small></strong><span>bé đã đến lớp</span></span></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Sĩ số học sinh <span className="count-badge">{students.length}</span></h3><p>Chạm vào trạng thái để cập nhật nhanh</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị tất cả các lớp')}>Tất cả lớp <Icon name="down" size={15} /></button></div><PagedTable columns={columns} dataSource={students} rowKey="name" /></section></>;
 }
 
 function TuitionPage({ onToast, students, user }) {
-  const allInvoices = [
-    { name: 'Nguyễn Minh Khôi', room: 'Mầm 1', amount: '3.500.000đ', due: '05/11/2026', status: 'Đã thanh toán', color: 'peach', avatar: 'MK' },
-    { name: 'Trần Bảo Ngọc', room: 'Chồi 2', amount: '3.800.000đ', due: '05/11/2026', status: 'Chờ thanh toán', color: 'lilac', avatar: 'BN' },
-    { name: 'Lê Gia Hân', room: 'Lá 1', amount: '4.000.000đ', due: '05/11/2026', status: 'Đã thanh toán', color: 'mint', avatar: 'GH' },
-    { name: 'Phạm Đức Anh', room: 'Mầm 2', amount: '3.500.000đ', due: '05/11/2026', status: 'Quá hạn', color: 'blue', avatar: 'ĐA' },
-    { name: 'Vũ Khánh Linh', room: 'Chồi 1', amount: '3.800.000đ', due: '05/11/2026', status: 'Chờ thanh toán', color: 'yellow', avatar: 'KL' },
-  ];
+  const paymentStatuses = ['Đã thanh toán', 'Chờ thanh toán', 'Đã thanh toán', 'Quá hạn', 'Chờ thanh toán'];
+  const allInvoices = students.map((student, index) => ({
+    ...student,
+    room: student.classroom,
+    amount: `${(3200000 + (student.age - 3) * 250000 + (index % 4) * 100000).toLocaleString('vi-VN')}đ`,
+    due: `${String(5 + (index % 8)).padStart(2, '0')}/11/2026`,
+    status: paymentStatuses[index] ?? (index % 5 === 0 ? 'Quá hạn' : index % 3 === 0 ? 'Chờ thanh toán' : 'Đã thanh toán'),
+  }));
   const invoices = user.role === 'parent'
     ? allInvoices.filter((invoice) => students.some((student) => student.name === invoice.name))
     : allInvoices;
-  return <><PageHeading eyebrow="TÀI CHÍNH & HỌC PHÍ" title="Quản lý học phí" description="Theo dõi các khoản thu và tình trạng thanh toán của phụ huynh." action={<button className="primary-button" onClick={() => onToast('Đã gửi nhắc phí đến phụ huynh chưa thanh toán')}><Icon name="bell" size={17} /> Nhắc học phí</button>} /><div className="tuition-stats"><StatCard label="Tổng học phí tháng 11" value="486" suffix="tr" change="+12.5%" icon="wallet" tone="green" foot="so với tháng trước" /><StatCard label="Đã thu" value="447" suffix="tr" change="92%" icon="check" tone="pink" foot="114 / 128 học sinh" /><StatCard label="Chờ thanh toán" value="31" suffix="tr" change="10 bé" icon="clock" tone="orange" foot="đang chờ xác nhận" /><StatCard label="Khoản quá hạn" value="8" suffix="tr" change="4 bé" icon="bell" tone="purple" foot="cần nhắc nhở" /></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Chi tiết học phí <span className="count-badge">Tháng 11</span></h3><p>Học phí và các khoản thu trong tháng</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị học phí tháng 11')}>Tháng 11, 2026 <Icon name="down" size={15} /></button></div><div className="table-scroll"><table><thead><tr><th>HỌC SINH</th><th>LỚP</th><th>SỐ TIỀN</th><th>HẠN THANH TOÁN</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{invoices.map((item) => <tr key={item.name}><td><div className="student-cell"><Avatar initials={item.avatar} color={item.color} /><span><strong>{item.name}</strong><small>Học phí tháng 11</small></span></div></td><td><span className="class-tag">{item.room}</span></td><td><strong className="amount">{item.amount}</strong></td><td>{item.due}</td><td><span className={`status-pill ${item.status === 'Đã thanh toán' ? 'status-present' : item.status === 'Quá hạn' ? 'status-absent' : 'status-pending'}`}><i />{item.status}</span></td><td><button className="dots-button" aria-label="Thao tác" onClick={() => onToast(`Đã mở hóa đơn của ${item.name}`)}><Icon name="dots" /></button></td></tr>)}</tbody></table></div></section></>;
+  const columns = [
+    { title: 'HỌC SINH', dataIndex: 'name', key: 'name', render: (_, item) => <div className="student-cell"><Avatar initials={item.avatar} color={item.color} /><span><strong>{item.name}</strong><small>Học phí tháng 11</small></span></div> },
+    { title: 'LỚP', dataIndex: 'room', key: 'room', render: (room) => <span className="class-tag">{room}</span> },
+    { title: 'SỐ TIỀN', dataIndex: 'amount', key: 'amount', render: (amount) => <strong className="amount">{amount}</strong> },
+    { title: 'HẠN THANH TOÁN', dataIndex: 'due', key: 'due' },
+    { title: 'TRẠNG THÁI', dataIndex: 'status', key: 'status', render: (status) => <span className={`status-pill ${status === 'Đã thanh toán' ? 'status-present' : status === 'Quá hạn' ? 'status-absent' : 'status-pending'}`}><i />{status}</span> },
+    { title: '', key: 'action', render: (_, item) => <button className="dots-button" aria-label={`Thao tác ${item.name}`} onClick={() => onToast(`Đã mở hóa đơn của ${item.name}`)}><Icon name="dots" /></button> },
+  ];
+  return <><PageHeading eyebrow="TÀI CHÍNH & HỌC PHÍ" title="Quản lý học phí" description="Theo dõi các khoản thu và tình trạng thanh toán của phụ huynh." action={<button className="primary-button" onClick={() => onToast('Đã gửi nhắc phí đến phụ huynh chưa thanh toán')}><Icon name="bell" size={17} /> Nhắc học phí</button>} /><div className="tuition-stats"><StatCard label="Tổng học phí tháng 11" value="486" suffix="tr" change="+12.5%" icon="wallet" tone="green" foot="so với tháng trước" /><StatCard label="Đã thu" value="447" suffix="tr" change="92%" icon="check" tone="pink" foot="114 / 128 học sinh" /><StatCard label="Chờ thanh toán" value="31" suffix="tr" change="10 bé" icon="clock" tone="orange" foot="đang chờ xác nhận" /><StatCard label="Khoản quá hạn" value="8" suffix="tr" change="4 bé" icon="bell" tone="purple" foot="cần nhắc nhở" /></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Chi tiết học phí <span className="count-badge">Tháng 11</span></h3><p>Học phí và các khoản thu trong tháng</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị học phí tháng 11')}>Tháng 11, 2026 <Icon name="down" size={15} /></button></div><PagedTable columns={columns} dataSource={invoices} rowKey="name" /></section></>;
 }
 
 function MessagesPage({ onToast }) {

@@ -1,0 +1,14 @@
+#winitech eco system
+version: "3.8"
+
+services:
+  bid-web:
+    image: winitechvina/preschool-web
+    container_name: preschool-web
+    ports:
+      - "6000:443"
+    volumes:
+      - preschool-web:/usr/share/nginx/html
+volumes:
+  bid-api:
+  bid-web:
