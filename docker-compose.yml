@@ -3,7 +3,7 @@ version: "3.8"
 
 services:
   preschool-api:
-    image: winitechvina/schedule-api
+    image: winitechvina/preschool-api
     container_name: preschool-api
     ports:
       - "6001:7000"
