@@ -1,6 +1,10 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import Table from 'antd/es/table';
 import {apiRequest, getApiUrl} from './api';
+import {SchoolDataProvider, usePageData} from './context/SchoolDataContext';
+import {allNavGroups, rolePages} from './routers/navigation';
+import {attendanceColors, getLocalDate, mapStudent, mapTeacher, pendingAttendance} from './utils/school';
+import {ATTENDANCE, AUTH, STUDENT, TEACHER, TUITION} from './api/apiConstant';
 
 const initialStudents = [
   { name: 'Nguyễn Minh Khôi', gender: 'Nam', age: 4, classroom: 'Mầm 1', parent: 'Chị Ngọc Anh', phone: '0912 345 678', status: 'Đã đến', avatar: 'MK', color: 'peach' },
@@ -75,27 +79,6 @@ const demoAccounts = {
   student: { role: 'student', name: 'Nguyễn Minh Khôi', title: 'Học sinh · Mầm 1', email: 'minhkhoi@annhien.vn', password: '123456', avatar: 'MK', color: 'peach', classroom: 'Mầm 1' },
 };
 
-const allNavGroups = [
-  { title: 'TỔNG QUAN', items: [{ id: 'overview', label: 'Tổng quan', icon: 'grid' }] },
-  { title: 'NHÀ TRƯỜNG', items: [
-    { id: 'students', label: 'Học sinh', icon: 'users' },
-    { id: 'teachers', label: 'Giáo viên', icon: 'graduation' },
-    { id: 'parents', label: 'Phụ huynh', icon: 'family' },
-    { id: 'classes', label: 'Lớp học', icon: 'book' },
-    { id: 'schedule', label: 'Thời khóa biểu', icon: 'calendar' },
-    { id: 'attendance', label: 'Điểm danh', icon: 'check' },
-    { id: 'tuition', label: 'Học phí', icon: 'wallet' },
-  ] },
-  { title: 'KẾT NỐI', items: [{ id: 'messages', label: 'Thông báo', icon: 'bell' }] },
-];
-
-const rolePages = {
-  admin: ['overview', 'students', 'teachers', 'parents', 'classes', 'schedule', 'attendance', 'tuition', 'messages'],
-  teacher: ['overview', 'students', 'classes', 'schedule', 'attendance', 'messages'],
-  parent: ['overview', 'schedule', 'tuition', 'messages'],
-  student: ['overview', 'schedule', 'messages'],
-};
-
 const scheduleDays = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'];
 const scheduleTimes = ['07:30', '08:00', '09:00', '09:45', '10:15', '11:00', '14:00', '15:00'];
 const weeklySchedule = [
@@ -105,40 +88,6 @@ const weeklySchedule = [
   [{ title: 'Đón bé & thể dục sáng', kind: 'care' }, { title: 'Thơ: Bé đến lớp', kind: 'learn' }, { title: 'Vườn rau của bé', kind: 'play' }, { title: 'Ăn nhẹ', kind: 'care' }, { title: 'Khám phá khoa học', kind: 'learn' }, { title: 'Ăn trưa & ngủ trưa', kind: 'care' }, { title: 'Xé dán giấy màu', kind: 'art' }, { title: 'Chơi tự do, trả bé', kind: 'play' }],
   [{ title: 'Đón bé & thể dục sáng', kind: 'care' }, { title: 'Ôn tập tuần này', kind: 'learn' }, { title: 'Trò chơi cùng bạn', kind: 'play' }, { title: 'Ăn nhẹ', kind: 'care' }, { title: 'Bé kể chuyện tuần qua', kind: 'learn' }, { title: 'Ăn trưa & ngủ trưa', kind: 'care' }, { title: 'Vũ điệu cuối tuần', kind: 'art' }, { title: 'Chơi tự do, trả bé', kind: 'play' }],
 ];
-
-const pendingAttendance = 'Chưa điểm danh';
-const attendanceColors = ['peach', 'lilac', 'mint', 'blue', 'yellow'];
-
-function mapStudent(student, attendance = {}) {
-  const name = student.name || '';
-  const initials = name.split(/\s+/).filter(Boolean);
-  return {
-    ...student,
-    gender: student.gender || '',
-    age: student.age || 0,
-    parent: student.parent || 'Phụ huynh',
-    phone: student.phone || 'Chưa cập nhật',
-    status: attendance.status || student.status || pendingAttendance,
-    avatar: student.avatar || (initials.length > 1
-      ? `${initials[0][0]}${initials[initials.length - 1][0]}`
-      : name.slice(0, 2)).toLocaleUpperCase('vi-VN'),
-    color: student.color || attendanceColors[(student.name || '').length % attendanceColors.length],
-  };
-}
-
-function mapTeacher(teacher) {
-  const parts = (teacher.name || '').split(/\s+/).filter(Boolean);
-  return {
-    ...teacher,
-    phone: teacher.phone || 'Chưa cập nhật',
-    email: teacher.email || 'Chưa cập nhật',
-    experience: teacher.experience || 'Đang cập nhật',
-    avatar: teacher.avatar || (parts.length > 1
-      ? `${parts[0][0]}${parts[parts.length - 1][0]}`
-      : (teacher.name || '').slice(0, 2)).toLocaleUpperCase('vi-VN'),
-    color: teacher.color || 'mint',
-  };
-}
 
 function formatCurrency(value) {
   return `${Number(value || 0).toLocaleString('vi-VN')}đ`;
@@ -161,12 +110,6 @@ function normalizeScheduleDay(value) {
 
 function getRoomCapacity(room) {
   return Number(room.capacity) || Number(room.count?.split('/')[1]?.match(/\d+/)?.[0]) || 0;
-}
-
-function getLocalDate() {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 10);
 }
 
 const iconPaths = {
@@ -202,26 +145,42 @@ function Avatar({ initials, color = 'mint', size = '' }) {
   return <span className={`avatar avatar-${color} ${size ? `avatar-${size}` : ''}`}>{initials}</span>;
 }
 
-function PagedTable({ columns, dataSource, rowKey, compact = false }) {
-  return <Table
-    className={`preschool-table ${compact ? 'preschool-table-compact' : ''}`}
-    columns={columns}
-    dataSource={dataSource}
-    rowKey={rowKey}
-    size="small"
-    scroll={{ x: 'max-content' }}
-    locale={{ emptyText: 'Không có dữ liệu phù hợp.' }}
-    pagination={compact ? false : {
-      defaultPageSize: 8,
-      pageSizeOptions: ['8', '16', '32'],
-      showSizeChanger: true,
-      showTotal: (total, range) => `Hiển thị ${range[0]}–${range[1]} trong ${total} mục`,
-      locale: { items_per_page: ' / trang', jump_to: 'Đến', jump_to_confirm: 'Xác nhận', page: 'Trang' },
-    }}
-  />;
+function ServerPagination({ pageNumber = 1, onPageChange, itemCount = 0, hasNext = true }) {
+  if (!onPageChange) return null;
+  return <div className="server-pagination">
+    <button type="button" disabled={pageNumber <= 1} onClick={() => onPageChange(pageNumber - 1)}>Trang trước</button>
+    <span>Trang {pageNumber} · {itemCount} bản ghi</span>
+    <button type="button" disabled={!hasNext || itemCount < 10} onClick={() => onPageChange(pageNumber + 1)}>Trang sau</button>
+  </div>;
+}
+
+function PagedTable({ columns, dataSource, rowKey, compact = false, pageNumber, onPageChange, hasNext }) {
+  return <>
+    <Table
+      className={`preschool-table ${compact ? 'preschool-table-compact' : ''}`}
+      columns={columns}
+      dataSource={dataSource}
+      rowKey={rowKey}
+      size="small"
+      scroll={{ x: 'max-content' }}
+      locale={{ emptyText: 'Không có dữ liệu phù hợp.' }}
+      pagination={compact || onPageChange ? false : {
+        defaultPageSize: 10,
+        pageSizeOptions: ['10'],
+        showSizeChanger: true,
+        showTotal: (total, range) => `Hiển thị ${range[0]}–${range[1]} trong ${total} mục`,
+        locale: { items_per_page: ' / trang', jump_to: 'Đến', jump_to_confirm: 'Xác nhận', page: 'Trang' },
+      }}
+    />
+    {!compact && <ServerPagination pageNumber={pageNumber} onPageChange={onPageChange} itemCount={dataSource.length} hasNext={hasNext} />}
+  </>;
 }
 
 function App() {
+  return <SchoolDataProvider><PreschoolApp /></SchoolDataProvider>;
+}
+
+function PreschoolApp() {
   const [page, setPage] = useState('overview');
   const [students, setStudents] = useState(initialStudents);
   const [teacherList, setTeacherList] = useState(teachers);
@@ -243,59 +202,60 @@ function App() {
   const [toast, setToast] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
+  const [listPage, setListPage] = useState(1);
+  const [listCursors, setListCursors] = useState({});
+  const [listHasNext, setListHasNext] = useState({});
+  const [scheduleClassroom, setScheduleClassroom] = useState('Mầm 1');
+  const listSequence = listCursors[`${page}:${listPage}`] ?? null;
+  const listFilter = page === 'schedule' ? scheduleClassroom : '';
+  const canLoadNextPage = listHasNext[`${page}:${listPage}`] !== false;
+  const {data: pageData, dataPageKey, loading: pageLoading, error: pageError, invalidate} = usePageData(
+    page,
+    apiToken,
+    user,
+    listSequence,
+    listFilter,
+  );
 
   useEffect(() => {
-    if (!apiToken || !user) return undefined;
-    let active = true;
-    const failures = [];
-    const tasks = [];
-    const load = (label, request, update) => {
-      tasks.push(request.then((data) => {
-        if (active) update(data);
-      }).catch((error) => {
-        failures.push(`${label}: ${error.message}`);
-      }));
-    };
-    const today = getLocalDate();
-    const month = today.slice(0, 7);
-    const isAdmin = user.role === 'admin';
-    const canManageAttendance = isAdmin || user.role === 'teacher';
-
-    if (canManageAttendance) {
-      load('học sinh và điểm danh', Promise.all([
-        apiRequest('/api/students', { token: apiToken }),
-        apiRequest(`/api/attendance?date=${today}`, { token: apiToken }),
-      ]), ([studentData, records]) => {
-        setAttendanceRecords(records);
-        const attendanceByStudent = Object.fromEntries(records.map((record) => [record.studentId, record]));
-        setStudents(studentData.map((student) => mapStudent(student, attendanceByStudent[student.id])));
-      });
-    } else {
-      load('học sinh', apiRequest('/api/students', { token: apiToken }), (data) => {
-        setStudents(data.map((student) => mapStudent(student)));
-      });
+    if (pageData.students) {
+      const attendanceByStudent = Object.fromEntries(
+        (pageData.attendanceRecords || []).map((record) => [record.studentId, record]),
+      );
+      setStudents(pageData.students.map((student) =>
+        mapStudent(student, attendanceByStudent[student.id]),
+      ));
     }
+    if (pageData.teacherList) setTeacherList(pageData.teacherList.map(mapTeacher));
+    if ('classrooms' in pageData) setClassrooms(pageData.classrooms);
+    if (pageData.dashboardSummary) setDashboardSummary(pageData.dashboardSummary);
+    if (pageData.attendanceRecords) setAttendanceRecords(pageData.attendanceRecords);
+    if (pageData.scheduleActivities) setScheduleActivities(pageData.scheduleActivities);
+    if (pageData.tuitionInvoices) setTuitionInvoices(pageData.tuitionInvoices);
+    if (pageData.schoolMessages) setSchoolMessages(pageData.schoolMessages);
+  }, [pageData]);
 
-    load('thời khóa biểu', apiRequest('/api/schedule', { token: apiToken }), setScheduleActivities);
-    load('học phí', apiRequest(`/api/tuition?month=${month}`, { token: apiToken }), setTuitionInvoices);
-    load('thông báo', apiRequest('/api/messages', { token: apiToken }), setSchoolMessages);
-    if (isAdmin || user.role === 'teacher') {
-      load('lớp học', apiRequest('/api/classes', { token: apiToken }), setClassrooms);
-    }
-    if (isAdmin) {
-      load('giáo viên', apiRequest('/api/teachers', { token: apiToken }), (data) => {
-        setTeacherList(data.map(mapTeacher));
-      });
-      load('tổng quan', apiRequest(`/api/dashboard/summary?date=${today}&month=${month}`, { token: apiToken }), setDashboardSummary);
-    }
-
-    Promise.all(tasks).then(() => {
-      if (active) setApiError(failures.length ? `Không tải được dữ liệu API — ${failures.join('; ')}` : '');
+  useEffect(() => {
+    const listKey = {
+      students: 'students',
+      teachers: 'teacherList',
+      parents: 'parents',
+      attendance: 'students',
+      tuition: 'tuitionInvoices',
+      messages: 'schoolMessages',
+      schedule: 'scheduleActivities',
+    }[page];
+    const identity = user ? `${apiToken}:${user.id || user.email || user.role}` : '';
+    const expectedDataKey = `${identity}:${page}:${listFilter}:${listSequence ?? 'first'}`;
+    if (pageLoading || dataPageKey !== expectedDataKey || listPage <= 1 || !listKey || !Array.isArray(pageData[listKey]) || pageData[listKey].length > 0) return;
+    setListHasNext((current) => ({ ...current, [`${page}:${listPage - 1}`]: false }));
+    setListCursors((current) => {
+      const next = { ...current };
+      delete next[`${page}:${listPage}`];
+      return next;
     });
-    return () => {
-      active = false;
-    };
-  }, [apiToken, user]);
+    setListPage((current) => current === listPage ? listPage - 1 : current);
+  }, [page, pageData, dataPageKey, pageLoading, listPage, listFilter, listSequence, apiToken, user]);
 
   const showToast = (message) => {
     setToast(message);
@@ -329,7 +289,7 @@ function App() {
     event.preventDefault();
     setLoginError('');
     try {
-      const response = await apiRequest('/api/auth/login', {
+      const response = await apiRequest(`${AUTH}/login`, {
         method: 'POST',
         body: { username: loginEmail.trim(), password: loginPassword },
       });
@@ -347,6 +307,10 @@ function App() {
         avatar: response.avatar || account.avatar,
         color: response.color || account.color,
       });
+      setScheduleClassroom(response.classroom || account.classroom || 'Mầm 1');
+      setListPage(1);
+      setListCursors({});
+      setListHasNext({});
       setPage('overview');
       setLoginPassword('');
     } catch (error) {
@@ -358,6 +322,9 @@ function App() {
     setApiToken('');
     setUser(null);
     setPage('overview');
+    setListPage(1);
+    setListCursors({});
+    setListHasNext({});
     setQuery('');
     setLoginPassword('');
     setLoginError('');
@@ -381,12 +348,13 @@ function App() {
       color: attendanceColors[students.length % attendanceColors.length],
     });
     try {
-      const created = await apiRequest('/api/students', {
+      const created = await apiRequest(STUDENT, {
         token: apiToken,
         method: 'POST',
         body: student,
       });
       setStudents((current) => [mapStudent(created), ...current]);
+      invalidate('students', 'parents', 'classes', 'overview', 'attendance', 'tuition');
       setModal('');
       formElement.reset();
       showToast('Đã thêm học sinh mới');
@@ -410,12 +378,13 @@ function App() {
     };
     if (!teacher.name) return;
     try {
-      const created = await apiRequest('/api/teachers', {
+      const created = await apiRequest(TEACHER, {
         token: apiToken,
         method: 'POST',
         body: teacher,
       });
       setTeacherList((current) => [mapTeacher(created), ...current]);
+      invalidate('teachers', 'classes');
       setModal('');
       showToast('Đã thêm giáo viên mới');
       setApiError('');
@@ -425,7 +394,7 @@ function App() {
   }
 
   async function saveAttendance(statuses) {
-    const records = students.map((student) => {
+    const records = visibleStudents.map((student) => {
       const status = statuses[student.id || student.name] || student.status || pendingAttendance;
       const attendance = attendanceRecords.find((record) => record.studentId === student.id);
       return {
@@ -437,12 +406,13 @@ function App() {
       };
     }).filter((record) => record.studentId);
     try {
-      const saved = await apiRequest('/api/attendance', {
+      const saved = await apiRequest(ATTENDANCE, {
         token: apiToken,
         method: 'PUT',
         body: { date: getLocalDate(), records },
       });
       setAttendanceRecords(saved);
+      invalidate('attendance', 'students', 'overview');
       const attendanceByStudent = Object.fromEntries(saved.map((record) => [record.studentId, record]));
       setStudents((current) => current.map((student) => mapStudent(student, attendanceByStudent[student.id])));
       setApiError('');
@@ -455,11 +425,12 @@ function App() {
   async function remindTuition() {
     try {
       const month = getLocalDate().slice(0, 7);
-      const updated = await apiRequest(`/api/tuition/remind?month=${month}`, {
+      const updated = await apiRequest(`${TUITION}/remind?month=${month}`, {
         token: apiToken,
         method: 'POST',
       });
       setTuitionInvoices(updated);
+      invalidate('tuition');
       setApiError('');
       showToast('Đã gửi nhắc học phí');
     } catch (error) {
@@ -470,8 +441,44 @@ function App() {
   function changePage(nextPage) {
     if (!allowedPages.includes(nextPage)) return;
     setPage(nextPage);
+    setListPage(1);
+    setListCursors({});
+    setListHasNext({});
     setQuery('');
     setSidebarOpen(false);
+    setApiError('');
+  }
+
+  function changeListPage(nextPage) {
+    if (nextPage < 1) return;
+    if (nextPage > listPage && listHasNext[`${page}:${listPage}`] === false) return;
+    if (nextPage > listPage) {
+      const listKey = {
+        students: 'students',
+        teachers: 'teacherList',
+        parents: 'parents',
+        attendance: 'students',
+        tuition: 'tuitionInvoices',
+        messages: 'schoolMessages',
+        schedule: 'scheduleActivities',
+      }[page];
+      const currentItems = pageData[listKey] || [];
+      if (currentItems.length < 10) return;
+      const nextSequence = currentItems[currentItems.length - 1]?.sequence;
+      if (nextSequence == null) return;
+      setListCursors((current) => ({
+        ...current,
+        [`${page}:${nextPage}`]: nextSequence,
+      }));
+    }
+    setListPage(nextPage);
+  }
+
+  function changeScheduleClassroom(classroom) {
+    setScheduleClassroom(classroom);
+    setListPage(1);
+    setListCursors({});
+    setListHasNext({});
   }
 
   if (!user) {
@@ -541,18 +548,19 @@ function App() {
         </header>
 
         <div className="page-content">
-          {apiError && <p className="login-error api-error" role="alert">{apiError}</p>}
+          {(apiError || pageError) && <p className="login-error api-error" role="alert">{apiError || pageError}</p>}
+          {pageLoading && <p className="page-loading" role="status">Đang tải dữ liệu mục này...</p>}
           {page === 'overview' && (user.role === 'admin'
             ? <Dashboard user={user} students={students} presentCount={presentCount} summary={dashboardSummary} onNavigate={changePage} onAdd={() => setModal('student')} onToast={showToast} />
             : <RoleOverview user={user} students={visibleStudents} onNavigate={changePage} />)}
-          {page === 'students' && <StudentsPage students={user.role === 'admin' ? filteredStudents : visibleStudents} query={query} setQuery={setQuery} onAdd={() => setModal('student')} canAdd={user.role === 'admin'} />}
-          {page === 'teachers' && user.role === 'admin' && <TeachersPage teachers={teacherList} query={query} setQuery={setQuery} onAdd={() => setModal('teacher')} />}
-          {page === 'parents' && user.role === 'admin' && <ParentsPage students={students} query={query} setQuery={setQuery} />}
+          {page === 'students' && <StudentsPage students={user.role === 'admin' ? filteredStudents : visibleStudents} query={query} setQuery={setQuery} onAdd={() => setModal('student')} canAdd={user.role === 'admin'} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'teachers' && user.role === 'admin' && <TeachersPage teachers={teacherList} query={query} setQuery={setQuery} onAdd={() => setModal('teacher')} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'parents' && user.role === 'admin' && <ParentsPage parents={pageData.parents || []} query={query} setQuery={setQuery} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
           {page === 'classes' && <ClassesPage onToast={showToast} user={user} apiClasses={classrooms} students={students} teacherData={teacherList} />}
-          {page === 'schedule' && <SchedulePage user={user} activities={scheduleActivities} classrooms={classrooms} />}
-          {page === 'attendance' && <AttendancePage students={visibleStudents} records={attendanceRecords} onSave={saveAttendance} />}
-          {page === 'tuition' && <TuitionPage onToast={showToast} students={visibleStudents} user={user} apiInvoices={tuitionInvoices} onRemind={remindTuition} />}
-          {page === 'messages' && <MessagesPage onToast={showToast} apiMessages={schoolMessages} />}
+          {page === 'schedule' && <SchedulePage user={user} activities={scheduleActivities} classrooms={classrooms} classroom={scheduleClassroom} onClassroomChange={changeScheduleClassroom} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'attendance' && <AttendancePage students={visibleStudents} records={attendanceRecords} onSave={saveAttendance} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'tuition' && <TuitionPage onToast={showToast} students={visibleStudents} user={user} apiInvoices={tuitionInvoices} onRemind={remindTuition} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'messages' && <MessagesPage onToast={showToast} apiMessages={schoolMessages} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
           {!allowedPages.includes(page) && <div className="panel access-message">Bạn không có quyền truy cập mục này.</div>}
         </div>
       </main>
@@ -612,7 +620,7 @@ function RoleOverview({ user, students, onNavigate }) {
   </>;
 }
 
-function TeachersPage({ teachers: teacherRows, query, setQuery, onAdd }) {
+function TeachersPage({ teachers: teacherRows, query, setQuery, onAdd, pageNumber, onPageChange, hasNext }) {
   const filtered = teacherRows.filter((teacher) => `${teacher.name} ${teacher.classroom} ${teacher.email}`.toLowerCase().includes(query.toLowerCase()));
   const columns = [
     { title: 'GIÁO VIÊN', dataIndex: 'name', key: 'name', render: (_, teacher) => <div className="student-cell"><Avatar initials={teacher.avatar} color={teacher.color} /><span><strong>Cô {teacher.name}</strong><small>{teacher.email}</small></span></div> },
@@ -624,17 +632,15 @@ function TeachersPage({ teachers: teacherRows, query, setQuery, onAdd }) {
   return <>
     <PageHeading eyebrow="ĐỘI NGŨ NHÀ TRƯỜNG" title="Giáo viên" description="Quản lý thông tin giáo viên và lớp chủ nhiệm tại An Nhiên." action={<button className="primary-button" onClick={onAdd}><Icon name="plus" size={18} /> Thêm giáo viên</button>} />
     <div className="class-summary teacher-summary"><div><span>Đội ngũ giáo viên</span><strong>{teacherRows.length} <small>cô giáo</small></strong></div><div><span>Lớp đang phụ trách</span><strong>{new Set(teacherRows.map((teacher) => teacher.classroom)).size} <small>lớp</small></strong></div><div><span>Năm học</span><strong>2026 <small>– 2027</small></strong></div><div><span>Hỗ trợ giảng dạy</span><strong>10 <small>nhân sự</small></strong></div></div>
-    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách giáo viên <span className="count-badge">{filtered.length}</span></h3><p>Thông tin liên hệ và lớp chủ nhiệm</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp, email..." /></label></div><PagedTable columns={columns} dataSource={filtered} rowKey="email" /></section>
+    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách giáo viên <span className="count-badge">{filtered.length}</span></h3><p>Thông tin liên hệ và lớp chủ nhiệm</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp, email..." /></label></div><PagedTable columns={columns} dataSource={filtered} rowKey="email" pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section>
   </>;
 }
 
-function ParentsPage({ students, query, setQuery }) {
-  const families = Object.values(students.reduce((groups, student) => {
-    const key = student.parent;
-    if (!groups[key]) groups[key] = { name: key, phone: student.phone, children: [] };
-    groups[key].children.push(student);
-    return groups;
-  }, {})).filter((family) => `${family.name} ${family.phone} ${family.children.map((child) => child.name).join(' ')}`.toLowerCase().includes(query.toLowerCase()));
+function ParentsPage({ parents, query, setQuery, pageNumber, onPageChange, hasNext }) {
+  const families = parents.filter((family) =>
+    `${family.name} ${family.phone} ${family.children.map((child) => child.name).join(' ')}`
+      .toLowerCase().includes(query.toLowerCase()),
+  );
   const columns = [
     { title: 'PHỤ HUYNH', dataIndex: 'name', key: 'name', render: (name) => <div className="student-cell"><Avatar initials={name.split(' ').map((part) => part[0]).slice(-2).join('')} color="lilac" /><span><strong>{name}</strong><small>Phụ huynh</small></span></div> },
     { title: 'ĐIỆN THOẠI', dataIndex: 'phone', key: 'phone' },
@@ -645,14 +651,15 @@ function ParentsPage({ students, query, setQuery }) {
   return <>
     <PageHeading eyebrow="KẾT NỐI GIA ĐÌNH & NHÀ TRƯỜNG" title="Phụ huynh" description="Thông tin phụ huynh được liên kết trực tiếp với hồ sơ học sinh." />
     <div className="family-summary"><span><Icon name="family" size={19} /> Đang quản lý</span><strong>{families.length} <small>gia đình</small></strong><p>Mỗi hồ sơ phụ huynh được tổng hợp từ thông tin liên hệ của các bé.</p></div>
-    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách phụ huynh <span className="count-badge">{families.length}</span></h3><p>Thông tin gia đình và các bé đang theo học</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm phụ huynh hoặc học sinh..." /></label></div><PagedTable columns={columns} dataSource={families} rowKey="name" /></section>
+    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách phụ huynh <span className="count-badge">{families.length}</span></h3><p>Thông tin gia đình và các bé đang theo học</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm phụ huynh hoặc học sinh..." /></label></div><PagedTable columns={columns} dataSource={families} rowKey="name" pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section>
   </>;
 }
 
-function SchedulePage({ user, activities = null, classrooms = null }) {
-  const [classroom, setClassroom] = useState(user.classroom ?? 'Mầm 1');
+function SchedulePage({ user, activities = null, classrooms = null, classroom, onClassroomChange, pageNumber, onPageChange, hasNext }) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const selectedClass = user.role === 'parent' || user.role === 'student' ? (user.classroom ?? 'Mầm 1') : classroom;
+  const selectedClass = user.role === 'parent' || user.role === 'student' || user.role === 'teacher'
+    ? (user.classroom ?? 'Mầm 1')
+    : classroom;
   const classOptions = classrooms === null ? ['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'] : classrooms.map((room) => room.name);
   const visibleActivities = activities === null ? null : activities.filter((activity) => activity.classroom === selectedClass);
   const times = visibleActivities === null
@@ -665,7 +672,7 @@ function SchedulePage({ user, activities = null, classrooms = null }) {
   return <>
     <PageHeading eyebrow="KẾ HOẠCH HỌC TẬP" title="Thời khóa biểu" description="Lịch sinh hoạt và hoạt động của các bé trong tuần." />
     <section className="schedule-banner"><div className="schedule-banner-icon">🌼</div><div><strong>Mỗi ngày một điều mới mẻ</strong><span>Thời gian biểu cân bằng giữa học tập, vui chơi và nghỉ ngơi.</span></div><span className="schedule-class-label">Lớp {selectedClass}</span></section>
-    <section className="panel schedule-panel"><div className="schedule-toolbar"><div><h3>Lịch học trong tuần</h3><p>Tuần {formatScheduleDate(weekStart)} – {formatScheduleDate(weekEnd)}, {weekStart.getFullYear()}</p></div><div className="schedule-controls">{user.role === 'admin' && <label className="select-button schedule-select"><span>Lớp</span><select value={classroom} onChange={(event) => setClassroom(event.target.value)}>{classOptions.map((room) => <option key={room}>{room}</option>)}</select><Icon name="down" size={14} /></label>}<button className="select-button" onClick={() => setWeekOffset((offset) => offset - 1)} aria-label="Tuần trước">‹</button><button className="select-button" onClick={() => setWeekOffset(0)}>Tuần này</button><button className="select-button" onClick={() => setWeekOffset((offset) => offset + 1)} aria-label="Tuần sau">›</button></div></div><div className="schedule-scroll"><table className="schedule-table"><thead><tr><th>THỜI GIAN</th>{scheduleDays.map((day, index) => { const date = new Date(weekStart); date.setDate(weekStart.getDate() + index); return <th key={day}>{day}<small>{formatScheduleDate(date)}</small></th>; })}</tr></thead><tbody>{times.map((time, row) => <tr key={time}><th>{time}</th>{scheduleDays.map((day, column) => { const activity = visibleActivities === null ? weeklySchedule[column][row] : visibleActivities.find((item) => normalizeScheduleDay(item.dayOfWeek) === column && item.startTime === time); return <td key={day}>{activity && <div className={`schedule-activity activity-${activity.kind}`}><strong>{activity.title}</strong><span>{time} – {activity.endTime || scheduleTimes[row + 1] || '16:30'}</span></div>}</td>; })}</tr>)}</tbody></table></div><div className="schedule-legend"><span><i className="activity-learn" />Học tập</span><span><i className="activity-play" />Vui chơi</span><span><i className="activity-care" />Sinh hoạt</span><span><i className="activity-art" />Nghệ thuật</span></div></section>
+    <section className="panel schedule-panel"><div className="schedule-toolbar"><div><h3>Lịch học trong tuần</h3><p>Tuần {formatScheduleDate(weekStart)} – {formatScheduleDate(weekEnd)}, {weekStart.getFullYear()}</p></div><div className="schedule-controls">{user.role === 'admin' && <label className="select-button schedule-select"><span>Lớp</span><select value={classroom} onChange={(event) => onClassroomChange(event.target.value)}>{classOptions.map((room) => <option key={room}>{room}</option>)}</select><Icon name="down" size={14} /></label>}<button className="select-button" onClick={() => setWeekOffset((offset) => offset - 1)} aria-label="Tuần trước">‹</button><button className="select-button" onClick={() => setWeekOffset(0)}>Tuần này</button><button className="select-button" onClick={() => setWeekOffset((offset) => offset + 1)} aria-label="Tuần sau">›</button></div></div><div className="schedule-scroll"><table className="schedule-table"><thead><tr><th>THỜI GIAN</th>{scheduleDays.map((day, index) => { const date = new Date(weekStart); date.setDate(weekStart.getDate() + index); return <th key={day}>{day}<small>{formatScheduleDate(date)}</small></th>; })}</tr></thead><tbody>{times.map((time, row) => <tr key={time}><th>{time}</th>{scheduleDays.map((day, column) => { const activity = visibleActivities === null ? weeklySchedule[column][row] : visibleActivities.find((item) => normalizeScheduleDay(item.dayOfWeek) === column && item.startTime === time); return <td key={day}>{activity && <div className={`schedule-activity activity-${activity.kind}`}><strong>{activity.title}</strong><span>{time} – {activity.endTime || scheduleTimes[row + 1] || '16:30'}</span></div>}</td>; })}</tr>)}</tbody></table></div><div className="schedule-legend"><span><i className="activity-learn" />Học tập</span><span><i className="activity-play" />Vui chơi</span><span><i className="activity-care" />Sinh hoạt</span><span><i className="activity-art" />Nghệ thuật</span></div><ServerPagination pageNumber={pageNumber} onPageChange={onPageChange} itemCount={visibleActivities?.length ?? 0} hasNext={hasNext} /></section>
   </>;
 }
 
@@ -732,7 +739,7 @@ function StatCard({ label, value, suffix, change, icon, tone, foot }) {
   return <div className="stat-card"><div className={`stat-icon stat-${tone}`}><Icon name={icon} size={19} /></div><span className="stat-label">{label}</span><div className="stat-number">{value}<small>{suffix}</small></div><div className="stat-foot"><span className={`stat-change ${change === 'Tốt lắm!' || change === 'Đủ giáo viên' ? 'change-calm' : ''}`}>{change}</span><span>{foot}</span></div></div>;
 }
 
-function StudentTable({ students, compact = false }) {
+function StudentTable({ students, compact = false, pageNumber, onPageChange, hasNext }) {
   const columns = [
     { title: 'HỌC SINH', dataIndex: 'name', key: 'name', render: (_, student) => <div className="student-cell"><Avatar initials={student.avatar} color={student.color} /><span><strong>{student.name}</strong><small>{student.gender} · {student.age} tuổi</small></span></div> },
     { title: 'LỚP', dataIndex: 'classroom', key: 'classroom', render: (classroom) => <span className="class-tag">{classroom}</span> },
@@ -740,13 +747,13 @@ function StudentTable({ students, compact = false }) {
     { title: 'TRẠNG THÁI', dataIndex: 'status', key: 'status', render: (status) => <span className={`status-pill ${status === 'Đã đến' ? 'status-present' : status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}><i />{status}</span> },
     !compact && { title: 'LIÊN HỆ', dataIndex: 'phone', key: 'phone' },
   ].filter(Boolean);
-  return <PagedTable columns={columns} dataSource={students} rowKey="name" compact={compact} />;
+  return <PagedTable columns={columns} dataSource={students} rowKey="name" compact={compact} pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} />;
 }
 
-function StudentsPage({ students, query, setQuery, onAdd, canAdd }) {
+function StudentsPage({ students, query, setQuery, onAdd, canAdd, pageNumber, onPageChange, hasNext }) {
   return <>
     <PageHeading eyebrow="DANH SÁCH & HỒ SƠ" title="Học sinh" description="Quản lý thông tin, hồ sơ và tình hình học tập của các bé." action={canAdd && <button className="primary-button" onClick={onAdd}><Icon name="plus" size={18} /> Thêm học sinh</button>} />
-    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách học sinh <span className="count-badge">{students.length}</span></h3><p>Năm học 2026 – 2027</p></div><div className="list-actions"><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp học..." /><kbd>⌘ K</kbd></label><button className="select-button" onClick={() => setQuery('')}>Tất cả lớp <Icon name="down" size={15} /></button></div></div><StudentTable students={students} /></section>
+    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách học sinh <span className="count-badge">{students.length}</span></h3><p>Năm học 2026 – 2027</p></div><div className="list-actions"><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp học..." /><kbd>⌘ K</kbd></label><button className="select-button" onClick={() => setQuery('')}>Tất cả lớp <Icon name="down" size={15} /></button></div></div><StudentTable students={students} pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section>
     <div className="page-footer"><span>Hiển thị {students.length} học sinh</span><span>Dữ liệu được lưu tạm trên trình duyệt</span></div>
   </>;
 }
@@ -780,7 +787,7 @@ function ClassesPage({ onToast, user, apiClasses = null, students, teacherData }
   return <><PageHeading eyebrow="TỔ CHỨC LỚP HỌC" title="Lớp học" description="Không gian lớn lên và khám phá của các bé tại An Nhiên." action={<button className="primary-button" onClick={() => onToast('Tính năng tạo lớp mới sẽ sớm được cập nhật')}><Icon name="plus" size={18} /> Tạo lớp mới</button>} /><div className="class-summary"><div><span>Đang hoạt động</span><strong>{classes.length} <small>lớp học</small></strong></div><div><span>Tổng số học sinh</span><strong>{totalStudents} <small>bé</small></strong></div><div><span>Đội ngũ giáo viên</span><strong>{apiClasses === null ? teacherData.length : displayedTeachers} <small>cô giáo</small></strong></div><div><span>Sĩ số trung bình</span><strong>{classes.length ? Math.round(totalStudents / classes.length) : 0} <small>bé / lớp</small></strong></div></div><div className="class-grid">{classes.map((room) => <article className="class-card" key={room.name}><div className={`class-art ${room.tone}`}><span>{room.icon}</span><button aria-label={`Tùy chọn ${room.name}`} onClick={() => onToast(`Đang xem thông tin lớp ${room.name}`)}><Icon name="dots" size={18} /></button></div><div className="class-card-content"><div className="class-title"><h3>{room.name}</h3><span>{room.age}</span></div><div className="class-capacity"><span>{room.count}</span><div><i style={{ width: `${getRoomCapacity(room) ? Math.min(100, (students.filter((student) => student.classroom === room.name).length / getRoomCapacity(room)) * 100) : 0}%` }} /></div></div><div className="class-detail"><span>Giáo viên chủ nhiệm</span><strong>{room.teacher}</strong></div><div className="class-detail"><span>Thời gian</span><strong>{room.time}</strong></div><button className="class-view" onClick={() => onToast(`Đang mở danh sách học sinh lớp ${room.name}`)}>Xem lớp học <Icon name="arrow" size={14} /></button></div></article>)}</div></>;
 }
 
-function AttendancePage({ students, onToast }) {
+function AttendancePage({ students, onToast, onSave, pageNumber, onPageChange, hasNext }) {
   const [statuses, setStatuses] = useState(() => Object.fromEntries(students.map((student) => [student.name, student.status])));
   const toggle = (name) => setStatuses((current) => ({ ...current, [name]: current[name] === 'Đã đến' ? 'Xin nghỉ' : 'Đã đến' }));
   const present = students.filter((student) => (statuses[student.name] ?? student.status) === 'Đã đến').length;
@@ -791,10 +798,10 @@ function AttendancePage({ students, onToast }) {
     { title: 'TRẠNG THÁI', key: 'status', render: (_, student) => { const status = statuses[student.name] ?? student.status; return <span className={`status-pill ${status === 'Đã đến' ? 'status-present' : status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}><i />{status}</span>; } },
     { title: 'CẬP NHẬT', key: 'action', render: (_, student) => { const status = statuses[student.name] ?? student.status; return <button className="mark-button" onClick={() => toggle(student.name)}>{status === 'Đã đến' ? 'Xin nghỉ' : 'Đánh dấu có mặt'}</button>; } },
   ];
-  return <><PageHeading eyebrow="ĐIỂM DANH HẰNG NGÀY" title="Điểm danh" description="Theo dõi tình hình đến lớp của các bé trong ngày." action={<button className="primary-button" onClick={() => onToast('Đã lưu điểm danh hôm nay')}><Icon name="check" size={18} /> Lưu điểm danh</button>} /><div className="attendance-banner"><div className="today-calendar"><span>THÁNG 11</span><strong>04</strong><small>THỨ TƯ</small></div><div><h3>Điểm danh ngày hôm nay</h3><p>Thứ Tư, ngày 04 tháng 11 năm 2026 · Cập nhật lần cuối 08:42</p></div><span className="attendance-total"><strong>{present}<small>/{students.length}</small></strong><span>bé đã đến lớp</span></span></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Sĩ số học sinh <span className="count-badge">{students.length}</span></h3><p>Chạm vào trạng thái để cập nhật nhanh</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị tất cả các lớp')}>Tất cả lớp <Icon name="down" size={15} /></button></div><PagedTable columns={columns} dataSource={students} rowKey="name" /></section></>;
+  return <><PageHeading eyebrow="ĐIỂM DANH HẰNG NGÀY" title="Điểm danh" description="Theo dõi tình hình đến lớp của các bé trong ngày." action={<button className="primary-button" onClick={() => onSave(statuses)}><Icon name="check" size={18} /> Lưu điểm danh</button>} /><div className="attendance-banner"><div className="today-calendar"><span>THÁNG 11</span><strong>04</strong><small>THỨ TƯ</small></div><div><h3>Điểm danh ngày hôm nay</h3><p>Thứ Tư, ngày 04 tháng 11 năm 2026 · Cập nhật lần cuối 08:42</p></div><span className="attendance-total"><strong>{present}<small>/{students.length}</small></strong><span>bé đã đến lớp</span></span></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Sĩ số học sinh <span className="count-badge">{students.length}</span></h3><p>Chạm vào trạng thái để cập nhật nhanh</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị tất cả các lớp')}>Tất cả lớp <Icon name="down" size={15} /></button></div><PagedTable columns={columns} dataSource={students} rowKey="name" pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section></>;
 }
 
-function TuitionPage({ onToast, students, user, apiInvoices = null, onRemind }) {
+function TuitionPage({ onToast, students, user, apiInvoices = null, onRemind, pageNumber, onPageChange, hasNext }) {
   const paymentStatuses = ['Đã thanh toán', 'Chờ thanh toán', 'Đã thanh toán', 'Quá hạn', 'Chờ thanh toán'];
   const allInvoices = students.map((student, index) => ({
     ...student,
@@ -816,8 +823,8 @@ function TuitionPage({ onToast, students, user, apiInvoices = null, onRemind }) 
     };
   });
   const invoices = user.role === 'parent'
-    ? allInvoices.filter((invoice) => students.some((student) => student.name === invoice.name))
-    : allInvoices;
+    ? invoiceRows.filter((invoice) => students.some((student) => student.name === invoice.name))
+    : invoiceRows;
   const columns = [
     { title: 'HỌC SINH', dataIndex: 'name', key: 'name', render: (_, item) => <div className="student-cell"><Avatar initials={item.avatar} color={item.color} /><span><strong>{item.name}</strong><small>Học phí tháng 11</small></span></div> },
     { title: 'LỚP', dataIndex: 'room', key: 'room', render: (room) => <span className="class-tag">{room}</span> },
@@ -826,10 +833,10 @@ function TuitionPage({ onToast, students, user, apiInvoices = null, onRemind }) 
     { title: 'TRẠNG THÁI', dataIndex: 'status', key: 'status', render: (status) => <span className={`status-pill ${status === 'Đã thanh toán' ? 'status-present' : status === 'Quá hạn' ? 'status-absent' : 'status-pending'}`}><i />{status}</span> },
     { title: '', key: 'action', render: (_, item) => <button className="dots-button" aria-label={`Thao tác ${item.name}`} onClick={() => onToast(`Đã mở hóa đơn của ${item.name}`)}><Icon name="dots" /></button> },
   ];
-  return <><PageHeading eyebrow="TÀI CHÍNH & HỌC PHÍ" title="Quản lý học phí" description="Theo dõi các khoản thu và tình trạng thanh toán của phụ huynh." action={<button className="primary-button" onClick={() => onToast('Đã gửi nhắc phí đến phụ huynh chưa thanh toán')}><Icon name="bell" size={17} /> Nhắc học phí</button>} /><div className="tuition-stats"><StatCard label="Tổng học phí tháng 11" value="486" suffix="tr" change="+12.5%" icon="wallet" tone="green" foot="so với tháng trước" /><StatCard label="Đã thu" value="447" suffix="tr" change="92%" icon="check" tone="pink" foot="114 / 128 học sinh" /><StatCard label="Chờ thanh toán" value="31" suffix="tr" change="10 bé" icon="clock" tone="orange" foot="đang chờ xác nhận" /><StatCard label="Khoản quá hạn" value="8" suffix="tr" change="4 bé" icon="bell" tone="purple" foot="cần nhắc nhở" /></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Chi tiết học phí <span className="count-badge">Tháng 11</span></h3><p>Học phí và các khoản thu trong tháng</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị học phí tháng 11')}>Tháng 11, 2026 <Icon name="down" size={15} /></button></div><PagedTable columns={columns} dataSource={invoices} rowKey="name" /></section></>;
+  return <><PageHeading eyebrow="TÀI CHÍNH & HỌC PHÍ" title="Quản lý học phí" description="Theo dõi các khoản thu và tình trạng thanh toán của phụ huynh." action={<button className="primary-button" onClick={() => onToast('Đã gửi nhắc phí đến phụ huynh chưa thanh toán')}><Icon name="bell" size={17} /> Nhắc học phí</button>} /><div className="tuition-stats"><StatCard label="Tổng học phí tháng 11" value="486" suffix="tr" change="+12.5%" icon="wallet" tone="green" foot="so với tháng trước" /><StatCard label="Đã thu" value="447" suffix="tr" change="92%" icon="check" tone="pink" foot="114 / 128 học sinh" /><StatCard label="Chờ thanh toán" value="31" suffix="tr" change="10 bé" icon="clock" tone="orange" foot="đang chờ xác nhận" /><StatCard label="Khoản quá hạn" value="8" suffix="tr" change="4 bé" icon="bell" tone="purple" foot="cần nhắc nhở" /></div><section className="panel listing-panel"><div className="list-toolbar"><div><h3>Chi tiết học phí <span className="count-badge">Tháng 11</span></h3><p>Học phí và các khoản thu trong tháng</p></div><button className="select-button" onClick={() => onToast('Đang hiển thị học phí tháng 11')}>Tháng 11, 2026 <Icon name="down" size={15} /></button></div><PagedTable columns={columns} dataSource={invoices} rowKey="name" pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section></>;
 }
 
-function MessagesPage({ onToast, apiMessages = null }) {
+function MessagesPage({ onToast, apiMessages = null, pageNumber, onPageChange, hasNext }) {
   const fakeMessages = [
     { title: 'Lịch hoạt động ngoài trời tuần này', body: 'Các bé sẽ tham gia hoạt động khám phá thiên nhiên vào sáng thứ Sáu. Ba mẹ nhớ chuẩn bị nón và bình nước cho bé nhé!', date: 'Hôm nay, 08:30', audience: 'Tất cả phụ huynh', initials: 'AN', tone: 'peach', tag: 'HOẠT ĐỘNG' },
     { title: 'Nhắc nhở học phí tháng 11', body: 'Nhà trường kính nhờ ba mẹ hoàn tất học phí tháng 11 trước ngày 05/11. Cảm ơn ba mẹ đã đồng hành cùng An Nhiên.', date: 'Hôm qua, 15:20', audience: 'Phụ huynh các lớp', initials: '💛', tone: 'yellow', tag: 'HỌC PHÍ' },
@@ -843,7 +850,7 @@ function MessagesPage({ onToast, apiMessages = null }) {
     tone: message.tone || 'peach',
     tag: message.tag || 'THÔNG BÁO',
   }));
-  return <><PageHeading eyebrow="GẮN KẾT CÙNG GIA ĐÌNH" title="Thông báo" description="Chia sẻ tin tức và những khoảnh khắc đáng yêu cùng phụ huynh." action={<button className="primary-button" onClick={() => onToast('Tính năng soạn thông báo mới sẽ sớm ra mắt')}><Icon name="plus" size={18} /> Soạn thông báo</button>} /><div className="message-intro"><div className="message-icon"><Icon name="heart" size={23} /></div><div><strong>Mỗi ngày một niềm vui ♡</strong><span>{messages.length} thông báo trong hệ thống</span></div><div className="message-recipients"><Avatar initials="MK" color="peach" /><Avatar initials="BN" color="lilac" /><Avatar initials="GH" color="mint" /><span>+125</span></div></div><div className="message-list">{messages.map((message) => <article className="panel message-card" key={message.id || message.title}><div className={`message-avatar avatar-${message.tone}`}>{message.initials}</div><div className="message-body"><div className="message-meta"><span className="message-tag">{message.tag}</span><span>{message.date}</span></div><h3>{message.title}</h3><p>{message.body}</p><div className="message-foot"><span><Icon name="users" size={15} /> {message.audience}</span><button onClick={() => onToast(`Đang mở thông báo: ${message.title}`)}>Xem chi tiết <Icon name="arrow" size={14} /></button></div></div></article>)}{messages.length === 0 && <div className="empty-state">Chưa có thông báo nào.</div>}</div></>;
+  return <><PageHeading eyebrow="GẮN KẾT CÙNG GIA ĐÌNH" title="Thông báo" description="Chia sẻ tin tức và những khoảnh khắc đáng yêu cùng phụ huynh." action={<button className="primary-button" onClick={() => onToast('Tính năng soạn thông báo mới sẽ sớm ra mắt')}><Icon name="plus" size={18} /> Soạn thông báo</button>} /><div className="message-intro"><div className="message-icon"><Icon name="heart" size={23} /></div><div><strong>Mỗi ngày một niềm vui ♡</strong><span>{messages.length} thông báo trong hệ thống</span></div><div className="message-recipients"><Avatar initials="MK" color="peach" /><Avatar initials="BN" color="lilac" /><Avatar initials="GH" color="mint" /><span>+125</span></div></div><div className="message-list">{messages.map((message) => <article className="panel message-card" key={message.id || message.title}><div className={`message-avatar avatar-${message.tone}`}>{message.initials}</div><div className="message-body"><div className="message-meta"><span className="message-tag">{message.tag}</span><span>{message.date}</span></div><h3>{message.title}</h3><p>{message.body}</p><div className="message-foot"><span><Icon name="users" size={15} /> {message.audience}</span><button onClick={() => onToast(`Đang mở thông báo: ${message.title}`)}>Xem chi tiết <Icon name="arrow" size={14} /></button></div></div></article>)}{messages.length === 0 && <div className="empty-state">Chưa có thông báo nào.</div>}<ServerPagination pageNumber={pageNumber} onPageChange={onPageChange} itemCount={messages.length} hasNext={hasNext} /></div></>;
 }
 
 function StudentModal({ onClose, onSubmit }) {

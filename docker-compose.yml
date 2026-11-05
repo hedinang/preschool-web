@@ -2,13 +2,24 @@
 version: "3.8"
 
 services:
-  bid-web:
+  preschool-api:
+    image: winitechvina/schedule-api
+    container_name: preschool-api
+    ports:
+      - "6001:7000"
+      - "6002:8400"
+    volumes:
+      - preschool-api:/preschool-api
+    restart: always
+
+  preschool-web:
     image: winitechvina/preschool-web
     container_name: preschool-web
     ports:
       - "6000:443"
     volumes:
       - preschool-web:/usr/share/nginx/html
+
 volumes:
-  bid-api:
-  bid-web:
+  preschool-api:
+  preschool-web:

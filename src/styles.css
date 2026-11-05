@@ -224,6 +224,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .preschool-table .class-tag, .preschool-table .status-pill { font-size: 12px; }
 .preschool-table .ant-empty-description { color: #7d8980; font-size: 14px; }
 .preschool-table .ant-pagination .ant-pagination-item a { font-size: 13px; }
+.server-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 15px; color: #7d8980; font-size: 13px; }
+.server-pagination button { padding: 7px 12px; border: 1px solid #e9eee8; border-radius: 6px; color: #6b7b70; background: #fff; cursor: pointer; }
+.server-pagination button:disabled { color: #aab3ab; background: #f8f9f7; cursor: not-allowed; }
 
 /* Secondary screens */
 .listing-panel { padding: 19px 20px; }
