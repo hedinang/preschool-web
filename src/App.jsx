@@ -1,10 +1,26 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import Table from 'antd/es/table';
+import Modal from 'antd/es/modal';
+import Popconfirm from 'antd/es/popconfirm';
+import Select from 'antd/es/select';
+import { toast } from 'react-toastify';
 import {apiRequest, getApiUrl} from './api';
 import {SchoolDataProvider, usePageData} from './context/SchoolDataContext';
 import {allNavGroups, rolePages} from './routers/navigation';
 import {attendanceColors, getLocalDate, mapStudent, mapTeacher, pendingAttendance} from './utils/school';
-import {ATTENDANCE, AUTH, STUDENT, TEACHER, TUITION} from './api/apiConstant';
+import {ATTENDANCE, AUTH, TUITION} from './api/apiConstant';
+import {
+  createUser,
+  createStudent,
+  createTeacher,
+  deleteUser,
+  deleteStudent,
+  deleteTeacher,
+  getUsers,
+  updateUser,
+  updateStudent,
+  updateTeacher,
+} from './api/school';
 
 const initialStudents = [
   { name: 'Nguyễn Minh Khôi', gender: 'Nam', age: 4, classroom: 'Mầm 1', parent: 'Chị Ngọc Anh', phone: '0912 345 678', status: 'Đã đến', avatar: 'MK', color: 'peach' },
@@ -76,7 +92,6 @@ const demoAccounts = {
   admin: { role: 'admin', name: 'Lan Anh', title: 'Quản trị viên', email: 'admin@annhien.vn', password: '123456', avatar: 'LA', color: 'peach' },
   teacher: { role: 'teacher', name: 'Cô Mai Phương', title: 'Giáo viên · Mầm 1', email: 'maiphuong@annhien.vn', password: '123456', avatar: 'MP', color: 'mint', classroom: 'Mầm 1' },
   parent: { role: 'parent', name: 'Chị Ngọc Anh', title: 'Phụ huynh', email: 'ngocanh@annhien.vn', password: '123456', avatar: 'NA', color: 'lilac', child: 'Nguyễn Minh Khôi' },
-  student: { role: 'student', name: 'Nguyễn Minh Khôi', title: 'Học sinh · Mầm 1', email: 'minhkhoi@annhien.vn', password: '123456', avatar: 'MK', color: 'peach', classroom: 'Mầm 1' },
 };
 
 const scheduleDays = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'];
@@ -184,6 +199,7 @@ function PreschoolApp() {
   const [page, setPage] = useState('overview');
   const [students, setStudents] = useState(initialStudents);
   const [teacherList, setTeacherList] = useState(teachers);
+  const [managedUsers, setManagedUsers] = useState([]);
   const [classrooms, setClassrooms] = useState(null);
   const [dashboardSummary, setDashboardSummary] = useState(null);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -192,22 +208,25 @@ function PreschoolApp() {
   const [schoolMessages, setSchoolMessages] = useState(null);
   const [user, setUser] = useState(null);
   const [apiToken, setApiToken] = useState('');
-  const [apiError, setApiError] = useState('');
   const [loginRole, setLoginRole] = useState('admin');
   const [loginEmail, setLoginEmail] = useState(demoAccounts.admin.email);
   const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState('');
-  const [toast, setToast] = useState('');
+  const [editingRecord, setEditingRecord] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [listPage, setListPage] = useState(1);
   const [listCursors, setListCursors] = useState({});
   const [listHasNext, setListHasNext] = useState({});
   const [scheduleClassroom, setScheduleClassroom] = useState('Mầm 1');
+  const [userRoleFilter, setUserRoleFilter] = useState('');
   const listSequence = listCursors[`${page}:${listPage}`] ?? null;
-  const listFilter = page === 'schedule' ? scheduleClassroom : '';
+  const listFilter = page === 'schedule'
+    ? scheduleClassroom
+    : page === 'users'
+      ? userRoleFilter
+      : '';
   const canLoadNextPage = listHasNext[`${page}:${listPage}`] !== false;
   const {data: pageData, dataPageKey, loading: pageLoading, error: pageError, invalidate} = usePageData(
     page,
@@ -227,6 +246,7 @@ function PreschoolApp() {
       ));
     }
     if (pageData.teacherList) setTeacherList(pageData.teacherList.map(mapTeacher));
+    if (pageData.managedUsers) setManagedUsers(pageData.managedUsers);
     if ('classrooms' in pageData) setClassrooms(pageData.classrooms);
     if (pageData.dashboardSummary) setDashboardSummary(pageData.dashboardSummary);
     if (pageData.attendanceRecords) setAttendanceRecords(pageData.attendanceRecords);
@@ -236,10 +256,15 @@ function PreschoolApp() {
   }, [pageData]);
 
   useEffect(() => {
+    if (pageError) toast.error(pageError);
+  }, [pageError]);
+
+  useEffect(() => {
     const listKey = {
       students: 'students',
       teachers: 'teacherList',
       parents: 'parents',
+      users: 'managedUsers',
       attendance: 'students',
       tuition: 'tuitionInvoices',
       messages: 'schoolMessages',
@@ -258,8 +283,10 @@ function PreschoolApp() {
   }, [page, pageData, dataPageKey, pageLoading, listPage, listFilter, listSequence, apiToken, user]);
 
   const showToast = (message) => {
-    setToast(message);
-    window.setTimeout(() => setToast(''), 2800);
+    toast.success(message);
+  };
+  const showInfo = (message) => {
+    toast.info(message);
   };
   const allowedPages = user ? rolePages[user.role] : [];
   const navGroups = allNavGroups.map((group) => ({
@@ -267,12 +294,13 @@ function PreschoolApp() {
     items: group.items.filter((item) => allowedPages.includes(item.id)),
   })).filter((group) => group.items.length > 0);
   const visibleStudents = user?.role === 'parent'
-    ? students.filter((student) => (user.studentId && student.id === user.studentId) || student.name === user.child)
-    : user?.role === 'student'
-      ? students.filter((student) => (user.studentId && student.id === user.studentId) || student.name === user.name)
-      : user?.role === 'teacher'
-        ? students.filter((student) => student.classroom === user.classroom)
-        : students;
+    ? students.filter((student) => (user.studentId && student.id === user.studentId)
+      || student.name === user.child
+      || (user.userId && student.parentUserId === user.userId)
+      || (user.email && student.parentEmail?.toLowerCase() === user.email.toLowerCase()))
+    : user?.role === 'teacher'
+      ? students.filter((student) => student.classroom === user.classroom)
+      : students;
   const filteredStudents = useMemo(() => visibleStudents.filter((student) =>
     `${student.name} ${student.classroom} ${student.parent}`.toLowerCase().includes(query.toLowerCase()),
   ), [visibleStudents, query]);
@@ -282,12 +310,10 @@ function PreschoolApp() {
   function selectRole(role) {
     setLoginRole(role);
     setLoginEmail(demoAccounts[role].email);
-    setLoginError('');
   }
 
   async function signIn(event) {
     event.preventDefault();
-    setLoginError('');
     try {
       const response = await apiRequest(`${AUTH}/login`, {
         method: 'POST',
@@ -297,7 +323,6 @@ function PreschoolApp() {
       const account = demoAccounts[loginRole];
       const { password: _demoPassword, ...demoProfile } = account;
       setApiToken(response.token);
-      setApiError('');
       setUser({
         ...demoProfile,
         ...response,
@@ -314,7 +339,7 @@ function PreschoolApp() {
       setPage('overview');
       setLoginPassword('');
     } catch (error) {
-      setLoginError(error.message || 'Không thể đăng nhập vào preschool-api.');
+      toast.error(error.message || 'Không thể đăng nhập vào preschool-api.');
     }
   }
 
@@ -327,44 +352,68 @@ function PreschoolApp() {
     setListHasNext({});
     setQuery('');
     setLoginPassword('');
-    setLoginError('');
   }
 
-  async function addStudent(event) {
+  async function saveStudent(event, existingStudent) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const name = form.get('name').toString().trim();
-    if (!name) return;
+    if (!name) {
+      toast.warning('Vui lòng nhập họ và tên học sinh.');
+      return;
+    }
+    if (user?.role === 'admin' && !form.get('parentUserId')) {
+      toast.warning('Vui lòng chọn phụ huynh từ danh sách tài khoản.');
+      return;
+    }
     const parts = name.split(/\s+/);
-    const student = mapStudent({
+    const student = {
       name,
       gender: form.get('gender').toString(),
       age: Number(form.get('age')),
-      classroom: form.get('classroom').toString(),
-      parent: form.get('parent').toString(),
+      classroom: String(form.get('classroom') || ''),
+      parentUserId: String(form.get('parentUserId') || ''),
       phone: form.get('phone').toString(),
       avatar: parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : name.slice(0, 2),
-      color: attendanceColors[students.length % attendanceColors.length],
-    });
+      color: existingStudent?.color || attendanceColors[students.length % attendanceColors.length],
+    };
     try {
-      const created = await apiRequest(STUDENT, {
-        token: apiToken,
-        method: 'POST',
-        body: student,
-      });
-      setStudents((current) => [mapStudent(created), ...current]);
+      const saved = existingStudent
+        ? await updateStudent(apiToken, existingStudent.id, student)
+        : await createStudent(apiToken, student);
+      setStudents((current) => existingStudent
+        ? current.map((item) => item.id === saved.id
+          ? mapStudent(saved, attendanceRecords.find((record) => record.studentId === saved.id))
+          : item)
+        : [mapStudent(saved), ...current]);
+      if (!existingStudent) {
+        setListPage(1);
+        setListCursors({});
+        setListHasNext({});
+      }
       invalidate('students', 'parents', 'classes', 'overview', 'attendance', 'tuition');
       setModal('');
+      setEditingRecord(null);
       formElement.reset();
-      showToast('Đã thêm học sinh mới');
-      setApiError('');
+      showToast(existingStudent ? 'Đã cập nhật hồ sơ học sinh' : 'Đã thêm học sinh mới');
     } catch (error) {
-      setApiError(`Không thể thêm học sinh: ${error.message}`);
+      toast.error(`Không thể ${existingStudent ? 'cập nhật' : 'thêm'} học sinh: ${error.message}`);
     }
   }
 
-  async function addTeacher(event) {
+  async function removeStudent(student) {
+    try {
+      await deleteStudent(apiToken, student.id);
+      setStudents((current) => current.filter((item) => item.id !== student.id));
+      invalidate('students', 'parents', 'classes', 'overview', 'attendance', 'tuition');
+      showToast(`Đã chuyển hồ sơ ${student.name} sang trạng thái đã xóa`);
+    } catch (error) {
+      toast.error(`Không thể xóa học sinh: ${error.message}`);
+    }
+  }
+
+  async function saveTeacher(event, existingTeacher) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const teacher = {
@@ -373,23 +422,90 @@ function PreschoolApp() {
       classroom: form.get('classroom').toString(),
       phone: form.get('phone').toString(),
       email: form.get('email').toString(),
-      experience: 'Mới',
-      color: attendanceColors[teacherList.length % attendanceColors.length],
+      experience: existingTeacher?.experience || 'Mới',
+      color: existingTeacher?.color || attendanceColors[teacherList.length % attendanceColors.length],
     };
-    if (!teacher.name) return;
+    if (!teacher.name) {
+      toast.warning('Vui lòng nhập họ và tên giáo viên.');
+      return;
+    }
     try {
-      const created = await apiRequest(TEACHER, {
-        token: apiToken,
-        method: 'POST',
-        body: teacher,
-      });
-      setTeacherList((current) => [mapTeacher(created), ...current]);
+      const saved = existingTeacher
+        ? await updateTeacher(apiToken, existingTeacher.id, teacher)
+        : await createTeacher(apiToken, teacher);
+      setTeacherList((current) => existingTeacher
+        ? current.map((item) => item.id === saved.id ? mapTeacher(saved) : item)
+        : [mapTeacher(saved), ...current]);
+      if (!existingTeacher) {
+        setListPage(1);
+        setListCursors({});
+        setListHasNext({});
+      }
       invalidate('teachers', 'classes');
       setModal('');
-      showToast('Đã thêm giáo viên mới');
-      setApiError('');
+      setEditingRecord(null);
+      showToast(existingTeacher ? 'Đã cập nhật thông tin giáo viên' : 'Đã thêm giáo viên mới');
     } catch (error) {
-      setApiError(`Không thể thêm giáo viên: ${error.message}`);
+      toast.error(`Không thể ${existingTeacher ? 'cập nhật' : 'thêm'} giáo viên: ${error.message}`);
+    }
+  }
+
+  async function removeTeacher(teacher) {
+    try {
+      await deleteTeacher(apiToken, teacher.id);
+      setTeacherList((current) => current.filter((item) => item.id !== teacher.id));
+      invalidate('teachers', 'classes');
+      showToast(`Đã chuyển hồ sơ cô ${teacher.name} sang trạng thái đã xóa`);
+    } catch (error) {
+      toast.error(`Không thể xóa giáo viên: ${error.message}`);
+    }
+  }
+
+  async function saveManagedUser(event, existingUser) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const userRequest = {
+      name: form.get('name').toString().trim(),
+      role: form.get('role').toString(),
+      title: form.get('title').toString().trim(),
+      classroom: form.get('classroom')?.toString() || '',
+      phone: form.get('phone')?.toString().trim() || '',
+      phone2: form.get('phone2')?.toString().trim() || '',
+      address: form.get('address')?.toString().trim() || '',
+      gender: form.get('gender')?.toString() || '',
+    };
+    if (!userRequest.name) {
+      toast.warning('Vui lòng nhập họ và tên tài khoản.');
+      return;
+    }
+    const password = form.get('password')?.toString();
+    if (password) userRequest.password = password;
+    if (!existingUser) userRequest.username = form.get('username').toString().trim();
+
+    try {
+      const saved = existingUser
+        ? await updateUser(apiToken, existingUser.id, userRequest)
+        : await createUser(apiToken, userRequest);
+      setManagedUsers((current) => existingUser
+        ? current.map((item) => item.id === saved.id ? saved : item)
+        : [saved, ...current]);
+      invalidate('users');
+      setModal('');
+      setEditingRecord(null);
+      showToast(existingUser ? 'Đã cập nhật tài khoản' : 'Đã tạo tài khoản');
+    } catch (error) {
+      toast.error(`Không thể ${existingUser ? 'cập nhật' : 'tạo'} tài khoản: ${error.message}`);
+    }
+  }
+
+  async function removeManagedUser(account) {
+    try {
+      await deleteUser(apiToken, account.id);
+      setManagedUsers((current) => current.filter((item) => item.id !== account.id));
+      invalidate('users');
+      showToast(`Đã vô hiệu hóa tài khoản ${account.username}`);
+    } catch (error) {
+      toast.error(`Không thể xóa tài khoản: ${error.message}`);
     }
   }
 
@@ -415,10 +531,9 @@ function PreschoolApp() {
       invalidate('attendance', 'students', 'overview');
       const attendanceByStudent = Object.fromEntries(saved.map((record) => [record.studentId, record]));
       setStudents((current) => current.map((student) => mapStudent(student, attendanceByStudent[student.id])));
-      setApiError('');
       showToast('Đã lưu điểm danh hôm nay');
     } catch (error) {
-      setApiError(`Không thể lưu điểm danh: ${error.message}`);
+      toast.error(`Không thể lưu điểm danh: ${error.message}`);
     }
   }
 
@@ -431,10 +546,9 @@ function PreschoolApp() {
       });
       setTuitionInvoices(updated);
       invalidate('tuition');
-      setApiError('');
       showToast('Đã gửi nhắc học phí');
     } catch (error) {
-      setApiError(`Không thể gửi nhắc học phí: ${error.message}`);
+      toast.error(`Không thể gửi nhắc học phí: ${error.message}`);
     }
   }
 
@@ -446,7 +560,6 @@ function PreschoolApp() {
     setListHasNext({});
     setQuery('');
     setSidebarOpen(false);
-    setApiError('');
   }
 
   function changeListPage(nextPage) {
@@ -457,6 +570,7 @@ function PreschoolApp() {
         students: 'students',
         teachers: 'teacherList',
         parents: 'parents',
+        users: 'managedUsers',
         attendance: 'students',
         tuition: 'tuitionInvoices',
         messages: 'schoolMessages',
@@ -481,12 +595,18 @@ function PreschoolApp() {
     setListHasNext({});
   }
 
+  function changeUserRoleFilter(role) {
+    setUserRoleFilter(role);
+    setListPage(1);
+    setListCursors({});
+    setListHasNext({});
+  }
+
   if (!user) {
     return <LoginPage
       role={loginRole}
       email={loginEmail}
       password={loginPassword}
-      error={loginError}
       onRoleChange={selectRole}
       onEmailChange={setLoginEmail}
       onPasswordChange={setLoginPassword}
@@ -523,7 +643,7 @@ function PreschoolApp() {
             <div className="support-art">☁️</div>
             <strong>Cần hỗ trợ?</strong>
             <span>Chúng mình luôn sẵn sàng giúp bạn.</span>
-            <button onClick={() => showToast('Đội ngũ hỗ trợ sẽ liên hệ với bạn sớm nhất!')}>Liên hệ hỗ trợ <Icon name="chevron" size={14} /></button>
+            <button onClick={() => showInfo('Đội ngũ hỗ trợ sẽ liên hệ với bạn sớm nhất!')}>Liên hệ hỗ trợ <Icon name="chevron" size={14} /></button>
           </div>
           <button className="profile" onClick={signOut} title="Đăng xuất">
             <Avatar initials={user.avatar} color={user.color} />
@@ -548,14 +668,14 @@ function PreschoolApp() {
         </header>
 
         <div className="page-content">
-          {(apiError || pageError) && <p className="login-error api-error" role="alert">{apiError || pageError}</p>}
           {pageLoading && <p className="page-loading" role="status">Đang tải dữ liệu mục này...</p>}
           {page === 'overview' && (user.role === 'admin'
-            ? <Dashboard user={user} students={students} presentCount={presentCount} summary={dashboardSummary} onNavigate={changePage} onAdd={() => setModal('student')} onToast={showToast} />
+            ? <Dashboard user={user} students={students} presentCount={presentCount} summary={dashboardSummary} onNavigate={changePage} onAdd={() => { setEditingRecord(null); setModal('student'); }} onToast={showToast} />
             : <RoleOverview user={user} students={visibleStudents} onNavigate={changePage} />)}
-          {page === 'students' && <StudentsPage students={user.role === 'admin' ? filteredStudents : visibleStudents} query={query} setQuery={setQuery} onAdd={() => setModal('student')} canAdd={user.role === 'admin'} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
-          {page === 'teachers' && user.role === 'admin' && <TeachersPage teachers={teacherList} query={query} setQuery={setQuery} onAdd={() => setModal('teacher')} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'students' && <StudentsPage students={user.role === 'admin' || user.role === 'teacher' ? filteredStudents : visibleStudents} query={query} setQuery={setQuery} onAdd={() => { setEditingRecord(null); setModal('student'); }} onEdit={(student) => { setEditingRecord(student); setModal('student'); }} onDelete={removeStudent} canEdit={user.role === 'admin' || user.role === 'teacher'} canDelete={user.role === 'admin'} canAdd={user.role === 'admin' || user.role === 'parent'} parentMode={user.role === 'parent'} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'teachers' && user.role === 'admin' && <TeachersPage teachers={teacherList} query={query} setQuery={setQuery} onAdd={() => { setEditingRecord(null); setModal('teacher'); }} onEdit={(teacher) => { setEditingRecord(teacher); setModal('teacher'); }} onDelete={removeTeacher} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
           {page === 'parents' && user.role === 'admin' && <ParentsPage parents={pageData.parents || []} query={query} setQuery={setQuery} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
+          {page === 'users' && user.role === 'admin' && <UsersPage users={managedUsers} currentUserId={user.userId} roleFilter={userRoleFilter} onRoleFilterChange={changeUserRoleFilter} onAdd={() => { setEditingRecord(null); setModal('user'); }} onEdit={(account) => { setEditingRecord(account); setModal('user'); }} onDelete={removeManagedUser} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
           {page === 'classes' && <ClassesPage onToast={showToast} user={user} apiClasses={classrooms} students={students} teacherData={teacherList} />}
           {page === 'schedule' && <SchedulePage user={user} activities={scheduleActivities} classrooms={classrooms} classroom={scheduleClassroom} onClassroomChange={changeScheduleClassroom} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
           {page === 'attendance' && <AttendancePage students={visibleStudents} records={attendanceRecords} onSave={saveAttendance} pageNumber={listPage} onPageChange={changeListPage} hasNext={canLoadNextPage} />}
@@ -564,9 +684,9 @@ function PreschoolApp() {
           {!allowedPages.includes(page) && <div className="panel access-message">Bạn không có quyền truy cập mục này.</div>}
         </div>
       </main>
-      {modal === 'student' && <StudentModal onClose={() => setModal('')} onSubmit={addStudent} />}
-      {modal === 'teacher' && <TeacherModal onClose={() => setModal('')} onSubmit={addTeacher} />}
-      {toast && <div className="toast"><span className="toast-check"><Icon name="check" size={15} /></span>{toast}</div>}
+      {modal === 'student' && <StudentModal token={apiToken} record={editingRecord} parentMode={user.role === 'parent'} onClose={() => { setModal(''); setEditingRecord(null); }} onSubmit={(event) => saveStudent(event, editingRecord)} />}
+      {modal === 'teacher' && <TeacherModal record={editingRecord} onClose={() => { setModal(''); setEditingRecord(null); }} onSubmit={(event) => saveTeacher(event, editingRecord)} />}
+      {modal === 'user' && <UserModal record={editingRecord} onClose={() => { setModal(''); setEditingRecord(null); }} onSubmit={(event) => saveManagedUser(event, editingRecord)} />}
     </div>
   );
 }
@@ -575,12 +695,11 @@ function PageHeading({ eyebrow, title, description, action }) {
   return <div className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="heading-description">{description}</p></div>{action}</div>;
 }
 
-function LoginPage({ role, email, password, error, onRoleChange, onEmailChange, onPasswordChange, onSubmit }) {
+function LoginPage({ role, email, password, onRoleChange, onEmailChange, onPasswordChange, onSubmit }) {
   const roles = [
     { id: 'admin', label: 'Quản trị viên', icon: 'grid', description: 'Quản lý toàn bộ nhà trường' },
     { id: 'teacher', label: 'Giáo viên', icon: 'graduation', description: 'Lớp học & điểm danh' },
     { id: 'parent', label: 'Phụ huynh', icon: 'family', description: 'Theo dõi hồ sơ của bé' },
-    { id: 'student', label: 'Học sinh', icon: 'child', description: 'Thời khóa biểu của bé' },
   ];
   return <main className="login-page">
     <section className="login-card">
@@ -590,7 +709,6 @@ function LoginPage({ role, email, password, error, onRoleChange, onEmailChange, 
       <form className="login-form" onSubmit={onSubmit}>
         <label className="form-field">Email đăng nhập<input type="email" autoComplete="username" value={email} onChange={(event) => onEmailChange(event.target.value)} required /></label>
         <label className="form-field">Mật khẩu<input type="password" autoComplete="current-password" value={password} onChange={(event) => onPasswordChange(event.target.value)} required placeholder="Nhập mật khẩu demo" /></label>
-        {error && <p className="login-error" role="alert">{error}</p>}
         <button className="primary-button login-submit" type="submit">Đăng nhập <Icon name="arrow" size={16} /></button>
       </form>
       <div className="demo-hint"><strong>Tài khoản gợi ý</strong><span>{demoAccounts[role].email} <i>·</i> mật khẩu <b>123456</b></span></div>
@@ -620,7 +738,7 @@ function RoleOverview({ user, students, onNavigate }) {
   </>;
 }
 
-function TeachersPage({ teachers: teacherRows, query, setQuery, onAdd, pageNumber, onPageChange, hasNext }) {
+function TeachersPage({ teachers: teacherRows, query, setQuery, onAdd, onEdit, onDelete, pageNumber, onPageChange, hasNext }) {
   const filtered = teacherRows.filter((teacher) => `${teacher.name} ${teacher.classroom} ${teacher.email}`.toLowerCase().includes(query.toLowerCase()));
   const columns = [
     { title: 'GIÁO VIÊN', dataIndex: 'name', key: 'name', render: (_, teacher) => <div className="student-cell"><Avatar initials={teacher.avatar} color={teacher.color} /><span><strong>Cô {teacher.name}</strong><small>{teacher.email}</small></span></div> },
@@ -628,11 +746,84 @@ function TeachersPage({ teachers: teacherRows, query, setQuery, onAdd, pageNumbe
     { title: 'LỚP CHỦ NHIỆM', dataIndex: 'classroom', key: 'classroom', render: (classroom) => <span className="class-tag">{classroom}</span> },
     { title: 'KINH NGHIỆM', dataIndex: 'experience', key: 'experience' },
     { title: 'LIÊN HỆ', dataIndex: 'phone', key: 'phone' },
+    { title: 'THAO TÁC', key: 'actions', render: (_, teacher) => <div className="row-actions">
+      <button type="button" className="row-action-edit" onClick={() => onEdit(teacher)}>Sửa</button>
+      <Popconfirm
+        title="Xóa hồ sơ giáo viên?"
+        description="Hồ sơ sẽ được chuyển sang trạng thái DELETED, không bị xóa khỏi cơ sở dữ liệu."
+        okText="Xóa hồ sơ"
+        cancelText="Hủy"
+        okButtonProps={{ danger: true }}
+        onConfirm={() => onDelete(teacher)}
+      >
+        <button type="button" className="row-action-delete">Xóa</button>
+      </Popconfirm>
+    </div> },
   ];
   return <>
     <PageHeading eyebrow="ĐỘI NGŨ NHÀ TRƯỜNG" title="Giáo viên" description="Quản lý thông tin giáo viên và lớp chủ nhiệm tại An Nhiên." action={<button className="primary-button" onClick={onAdd}><Icon name="plus" size={18} /> Thêm giáo viên</button>} />
     <div className="class-summary teacher-summary"><div><span>Đội ngũ giáo viên</span><strong>{teacherRows.length} <small>cô giáo</small></strong></div><div><span>Lớp đang phụ trách</span><strong>{new Set(teacherRows.map((teacher) => teacher.classroom)).size} <small>lớp</small></strong></div><div><span>Năm học</span><strong>2026 <small>– 2027</small></strong></div><div><span>Hỗ trợ giảng dạy</span><strong>10 <small>nhân sự</small></strong></div></div>
-    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách giáo viên <span className="count-badge">{filtered.length}</span></h3><p>Thông tin liên hệ và lớp chủ nhiệm</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp, email..." /></label></div><PagedTable columns={columns} dataSource={filtered} rowKey="email" pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section>
+    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách giáo viên <span className="count-badge">{filtered.length}</span></h3><p>Thông tin liên hệ và lớp chủ nhiệm</p></div><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp, email..." /></label></div><PagedTable columns={columns} dataSource={filtered} rowKey="id" pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section>
+  </>;
+}
+
+function UsersPage({ users, currentUserId, roleFilter, onRoleFilterChange, onAdd, onEdit, onDelete, pageNumber, onPageChange, hasNext }) {
+  const roleLabels = { ADMIN: 'Quản trị viên', TEACHER: 'Giáo viên', PARENT: 'Phụ huynh' };
+  const columns = [
+    { title: 'TÀI KHOẢN', dataIndex: 'username', key: 'username', render: (username, account) => <div className="student-cell"><Avatar initials={account.name?.split(/\s+/).map((part) => part[0]).slice(-2).join('').toLocaleUpperCase('vi-VN') || 'U'} color={account.role === 'TEACHER' ? 'mint' : account.role === 'PARENT' ? 'lilac' : 'peach'} /><span><strong>{account.name}</strong><small>{username}</small></span></div> },
+    { title: 'VAI TRÒ', dataIndex: 'role', key: 'role', render: (role) => <span className="class-tag">{roleLabels[role] || role}</span> },
+    { title: 'LỚP PHỤ TRÁCH', dataIndex: 'classroom', key: 'classroom', render: (classroom, account) => account.role === 'TEACHER' ? classroom || 'Chưa phân công' : '—' },
+    { title: 'ĐIỆN THOẠI 1', dataIndex: 'phone', key: 'phone', render: (phone) => phone || '—' },
+    { title: 'ĐIỆN THOẠI 2', dataIndex: 'phone2', key: 'phone2', render: (phone) => phone || '—' },
+    { title: 'GIỚI TÍNH', dataIndex: 'gender', key: 'gender', render: (gender) => gender || '—' },
+    { title: 'CHỨC DANH', dataIndex: 'title', key: 'title', render: (title) => title || '—' },
+    { title: 'TRẠNG THÁI', dataIndex: 'status', key: 'status', render: (status) => <span className={`status-pill ${status === 'ACTIVE' ? 'status-present' : 'status-pending'}`}><i />{status === 'ACTIVE' || !status ? 'Đang hoạt động' : status}</span> },
+    { title: 'THAO TÁC', key: 'actions', render: (_, account) => account.userId === currentUserId
+      ? <span className="current-account-label">Tài khoản hiện tại</span>
+      : <div className="row-actions">
+        <button type="button" className="row-action-edit" onClick={() => onEdit(account)}>Sửa</button>
+        <Popconfirm
+          title="Vô hiệu hóa tài khoản?"
+          description="Tài khoản sẽ chuyển sang trạng thái DELETED và không thể đăng nhập."
+          okText="Vô hiệu hóa"
+          cancelText="Hủy"
+          okButtonProps={{ danger: true }}
+          onConfirm={() => onDelete(account)}
+        >
+          <button type="button" className="row-action-delete">Xóa</button>
+        </Popconfirm>
+      </div> },
+  ];
+  return <>
+    <section className="panel listing-panel">
+      <div className="list-toolbar">
+        <Select
+          aria-label="Lọc tài khoản theo vai trò"
+          value={roleFilter || undefined}
+          onChange={(role) => onRoleFilterChange(role || '')}
+          allowClear
+          placeholder="Tất cả vai trò"
+          style={{ minWidth: 190 }}
+          options={[
+            { value: 'ADMIN', label: 'Quản trị viên' },
+            { value: 'TEACHER', label: 'Giáo viên' },
+            { value: 'PARENT', label: 'Phụ huynh' },
+          ]}
+        />
+        <button className="primary-button" onClick={onAdd}><Icon name="plus" size={18} /> Tạo tài khoản</button>
+      </div>
+      <Table
+        className="preschool-table"
+        columns={columns}
+        dataSource={users}
+        rowKey="id"
+        size="small"
+        scroll={{ x: 'max-content' }}
+        pagination={false}
+        locale={{ emptyText: 'Chưa có tài khoản nào.' }}
+      />
+      <ServerPagination pageNumber={pageNumber} onPageChange={onPageChange} itemCount={users.length} hasNext={hasNext} />
+    </section>
   </>;
 }
 
@@ -676,8 +867,59 @@ function SchedulePage({ user, activities = null, classrooms = null, classroom, o
   </>;
 }
 
-function TeacherModal({ onClose, onSubmit }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="student-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-modal-title"><div className="modal-header"><div><p className="eyebrow">HỒ SƠ NHÂN SỰ</p><h2 id="teacher-modal-title">Thêm giáo viên</h2><p>Cập nhật thông tin giáo viên mới.</p></div><button className="icon-button" onClick={onClose} aria-label="Đóng"><Icon name="close" /></button></div><form onSubmit={onSubmit}><label className="form-field full-field">Họ và tên <span>*</span><input name="name" required placeholder="Ví dụ: Nguyễn Thị Mai" autoFocus /></label><div className="form-row"><label className="form-field">Lớp phụ trách<select name="classroom">{['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'].map((room) => <option key={room}>{room}</option>)}</select></label><label className="form-field">Chức vụ<select name="title"><option>Giáo viên chủ nhiệm</option><option>Giáo viên bộ môn</option><option>Trợ giảng</option></select></label></div><label className="form-field full-field">Email<input type="email" name="email" placeholder="giaovien@annhien.vn" /></label><label className="form-field full-field">Số điện thoại<input name="phone" type="tel" placeholder="09xx xxx xxx" /></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Để sau</button><button type="submit" className="primary-button"><Icon name="plus" size={17} /> Thêm giáo viên</button></div></form></section></div>;
+function TeacherModal({ record, onClose, onSubmit }) {
+  return <Modal
+    open
+    centered
+    width={470}
+    className="student-modal"
+    title={<div className="modal-header"><div><p className="eyebrow">HỒ SƠ NHÂN SỰ</p><h2>{record ? 'Cập nhật giáo viên' : 'Thêm giáo viên'}</h2><p>{record ? 'Chỉnh sửa thông tin và lớp phụ trách.' : 'Cập nhật thông tin giáo viên mới.'}</p></div></div>}
+    footer={null}
+    onCancel={onClose}
+    destroyOnClose
+  >
+    <form onSubmit={onSubmit}>
+      <label className="form-field full-field">Họ và tên <span>*</span><input name="name" required defaultValue={record?.name || ''} placeholder="Ví dụ: Nguyễn Thị Mai" autoFocus /></label>
+      <div className="form-row">
+        <label className="form-field">Lớp phụ trách<select name="classroom" defaultValue={record?.classroom || 'Mầm 1'}>{['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'].map((room) => <option key={room}>{room}</option>)}</select></label>
+        <label className="form-field">Chức vụ<select name="title" defaultValue={record?.title || 'Giáo viên chủ nhiệm'}><option>Giáo viên chủ nhiệm</option><option>Giáo viên bộ môn</option><option>Trợ giảng</option></select></label>
+      </div>
+      <label className="form-field full-field">Email<input type="email" name="email" defaultValue={record?.email === 'Chưa cập nhật' ? '' : record?.email || ''} placeholder="giaovien@annhien.vn" /></label>
+      <label className="form-field full-field">Số điện thoại<input name="phone" type="tel" defaultValue={record?.phone === 'Chưa cập nhật' ? '' : record?.phone || ''} placeholder="09xx xxx xxx" /></label>
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Hủy</button><button type="submit" className="primary-button"><Icon name={record ? 'check' : 'plus'} size={17} /> {record ? 'Lưu thay đổi' : 'Thêm giáo viên'}</button></div>
+    </form>
+  </Modal>;
+}
+
+function UserModal({ record, onClose, onSubmit }) {
+  return <Modal
+    open
+    centered
+    width={470}
+    className="student-modal"
+    title={<div className="modal-header"><div><p className="eyebrow">TÀI KHOẢN HỆ THỐNG</p><h2>{record ? 'Cập nhật tài khoản' : 'Tạo tài khoản mới'}</h2><p>{record ? 'Đổi vai trò, thông tin hồ sơ hoặc đặt lại mật khẩu.' : 'Tài khoản thuộc một trong ba vai trò của nhà trường.'}</p></div></div>}
+    footer={null}
+    onCancel={onClose}
+    destroyOnClose
+  >
+    <form onSubmit={onSubmit}>
+      {!record && <label className="form-field full-field">Email đăng nhập <span>*</span><input type="email" name="username" required autoComplete="off" placeholder="ten@annhien.vn" /></label>}
+      <label className="form-field full-field">Họ và tên <span>*</span><input name="name" required defaultValue={record?.name || ''} placeholder="Họ và tên" /></label>
+      <div className="form-row">
+        <label className="form-field">Giới tính<select name="gender" defaultValue={record?.gender || ''}><option value="">Chọn giới tính</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option><option value="Khác">Khác</option></select></label>
+        <label className="form-field">Số điện thoại 1<input name="phone" type="tel" defaultValue={record?.phone || ''} placeholder="09xx xxx xxx" /></label>
+      </div>
+      <div className="form-row">
+        <label className="form-field">Số điện thoại 2<input name="phone2" type="tel" defaultValue={record?.phone2 || ''} placeholder="09xx xxx xxx" /></label>
+        <label className="form-field">Chức danh<input name="title" defaultValue={record?.title || ''} placeholder="Ví dụ: Giáo viên chủ nhiệm" /></label>
+      </div>
+      <label className="form-field full-field">Vai trò<select name="role" defaultValue={record?.role || 'PARENT'}><option value="ADMIN">Quản trị viên</option><option value="TEACHER">Giáo viên</option><option value="PARENT">Phụ huynh</option></select></label>
+      <label className="form-field full-field">Lớp phụ trách (dành cho giáo viên)<select name="classroom" defaultValue={record?.classroom || ''}><option value="">Chưa phân công</option>{['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'].map((room) => <option key={room}>{room}</option>)}</select></label>
+      <label className="form-field full-field">Địa chỉ thường trú<input name="address" defaultValue={record?.address || ''} placeholder="Số nhà, đường, phường/xã, tỉnh/thành" /></label>
+      <label className="form-field full-field">{record ? 'Mật khẩu mới (để trống nếu không đổi)' : 'Mật khẩu'}<input type="password" name="password" required={!record} minLength={6} autoComplete="new-password" placeholder={record ? 'Ít nhất 6 ký tự' : 'Ít nhất 6 ký tự'} /></label>
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Hủy</button><button type="submit" className="primary-button"><Icon name={record ? 'check' : 'plus'} size={17} /> {record ? 'Lưu thay đổi' : 'Tạo tài khoản'}</button></div>
+    </form>
+  </Modal>;
 }
 
 function Dashboard({ user, students, presentCount, summary, onNavigate, onAdd, onToast }) {
@@ -739,22 +981,36 @@ function StatCard({ label, value, suffix, change, icon, tone, foot }) {
   return <div className="stat-card"><div className={`stat-icon stat-${tone}`}><Icon name={icon} size={19} /></div><span className="stat-label">{label}</span><div className="stat-number">{value}<small>{suffix}</small></div><div className="stat-foot"><span className={`stat-change ${change === 'Tốt lắm!' || change === 'Đủ giáo viên' ? 'change-calm' : ''}`}>{change}</span><span>{foot}</span></div></div>;
 }
 
-function StudentTable({ students, compact = false, pageNumber, onPageChange, hasNext }) {
+function StudentTable({ students, compact = false, pageNumber, onPageChange, hasNext, canEdit = false, canDelete = false, onEdit, onDelete }) {
   const columns = [
     { title: 'HỌC SINH', dataIndex: 'name', key: 'name', render: (_, student) => <div className="student-cell"><Avatar initials={student.avatar} color={student.color} /><span><strong>{student.name}</strong><small>{student.gender} · {student.age} tuổi</small></span></div> },
     { title: 'LỚP', dataIndex: 'classroom', key: 'classroom', render: (classroom) => <span className="class-tag">{classroom}</span> },
     !compact && { title: 'PHỤ HUYNH', dataIndex: 'parent', key: 'parent' },
+    !compact && { title: 'PARENT ID', dataIndex: 'parentUserId', key: 'parentUserId', render: (parentUserId) => parentUserId || '—' },
     { title: 'TRẠNG THÁI', dataIndex: 'status', key: 'status', render: (status) => <span className={`status-pill ${status === 'Đã đến' ? 'status-present' : status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}><i />{status}</span> },
     !compact && { title: 'LIÊN HỆ', dataIndex: 'phone', key: 'phone' },
+    !compact && (canEdit || canDelete) && { title: 'THAO TÁC', key: 'actions', render: (_, student) => <div className="row-actions">
+      {canEdit && <button type="button" className="row-action-edit" onClick={() => onEdit(student)}>Sửa</button>}
+      {canDelete && <Popconfirm
+        title="Xóa hồ sơ học sinh?"
+        description="Hồ sơ sẽ được chuyển sang trạng thái DELETED, không bị xóa khỏi cơ sở dữ liệu."
+        okText="Xóa hồ sơ"
+        cancelText="Hủy"
+        okButtonProps={{ danger: true }}
+        onConfirm={() => onDelete(student)}
+      >
+        <button type="button" className="row-action-delete">Xóa</button>
+      </Popconfirm>}
+    </div> },
   ].filter(Boolean);
   return <PagedTable columns={columns} dataSource={students} rowKey="name" compact={compact} pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} />;
 }
 
-function StudentsPage({ students, query, setQuery, onAdd, canAdd, pageNumber, onPageChange, hasNext }) {
+function StudentsPage({ students, query, setQuery, onAdd, onEdit, onDelete, canEdit, canDelete, canAdd, parentMode, pageNumber, onPageChange, hasNext }) {
   return <>
-    <PageHeading eyebrow="DANH SÁCH & HỒ SƠ" title="Học sinh" description="Quản lý thông tin, hồ sơ và tình hình học tập của các bé." action={canAdd && <button className="primary-button" onClick={onAdd}><Icon name="plus" size={18} /> Thêm học sinh</button>} />
-    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>Danh sách học sinh <span className="count-badge">{students.length}</span></h3><p>Năm học 2026 – 2027</p></div><div className="list-actions"><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp học..." /><kbd>⌘ K</kbd></label><button className="select-button" onClick={() => setQuery('')}>Tất cả lớp <Icon name="down" size={15} /></button></div></div><StudentTable students={students} pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} /></section>
-    <div className="page-footer"><span>Hiển thị {students.length} học sinh</span><span>Dữ liệu được lưu tạm trên trình duyệt</span></div>
+    <PageHeading eyebrow={parentMode ? 'HỒ SƠ GIA ĐÌNH' : 'DANH SÁCH & HỒ SƠ'} title={parentMode ? 'Các con của tôi' : 'Học sinh'} description={parentMode ? 'Khai báo và theo dõi hồ sơ các con đang theo học tại An Nhiên.' : 'Quản lý thông tin, hồ sơ và tình hình học tập của các bé.'} action={canAdd && <button className="primary-button" onClick={onAdd}><Icon name="plus" size={18} /> {parentMode ? 'Khai báo con' : 'Thêm học sinh'}</button>} />
+    <section className="panel listing-panel"><div className="list-toolbar"><div><h3>{parentMode ? 'Danh sách các con' : 'Danh sách học sinh'} <span className="count-badge">{students.length}</span></h3><p>{parentMode ? 'Thông tin do phụ huynh khai báo' : 'Năm học 2026 – 2027'}</p></div><div className="list-actions"><label className="search-field"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, lớp học..." /><kbd>⌘ K</kbd></label><button className="select-button" onClick={() => setQuery('')}>Tất cả lớp <Icon name="down" size={15} /></button></div></div><StudentTable students={students} pageNumber={pageNumber} onPageChange={onPageChange} hasNext={hasNext} canEdit={canEdit} canDelete={canDelete} onEdit={onEdit} onDelete={onDelete} /></section>
+    <div className="page-footer"><span>Hiển thị {students.length} học sinh</span><span>{parentMode ? 'Nhà trường sẽ xếp lớp sau khi xác nhận hồ sơ.' : 'Dữ liệu được lưu trong hệ thống nhà trường.'}</span></div>
   </>;
 }
 
@@ -853,8 +1109,131 @@ function MessagesPage({ onToast, apiMessages = null, pageNumber, onPageChange, h
   return <><PageHeading eyebrow="GẮN KẾT CÙNG GIA ĐÌNH" title="Thông báo" description="Chia sẻ tin tức và những khoảnh khắc đáng yêu cùng phụ huynh." action={<button className="primary-button" onClick={() => onToast('Tính năng soạn thông báo mới sẽ sớm ra mắt')}><Icon name="plus" size={18} /> Soạn thông báo</button>} /><div className="message-intro"><div className="message-icon"><Icon name="heart" size={23} /></div><div><strong>Mỗi ngày một niềm vui ♡</strong><span>{messages.length} thông báo trong hệ thống</span></div><div className="message-recipients"><Avatar initials="MK" color="peach" /><Avatar initials="BN" color="lilac" /><Avatar initials="GH" color="mint" /><span>+125</span></div></div><div className="message-list">{messages.map((message) => <article className="panel message-card" key={message.id || message.title}><div className={`message-avatar avatar-${message.tone}`}>{message.initials}</div><div className="message-body"><div className="message-meta"><span className="message-tag">{message.tag}</span><span>{message.date}</span></div><h3>{message.title}</h3><p>{message.body}</p><div className="message-foot"><span><Icon name="users" size={15} /> {message.audience}</span><button onClick={() => onToast(`Đang mở thông báo: ${message.title}`)}>Xem chi tiết <Icon name="arrow" size={14} /></button></div></div></article>)}{messages.length === 0 && <div className="empty-state">Chưa có thông báo nào.</div>}<ServerPagination pageNumber={pageNumber} onPageChange={onPageChange} itemCount={messages.length} hasNext={hasNext} /></div></>;
 }
 
-function StudentModal({ onClose, onSubmit }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="student-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-header"><div><p className="eyebrow">HỒ SƠ HỌC SINH</p><h2 id="modal-title">Thêm học sinh mới</h2><p>Điền một vài thông tin cơ bản của bé nhé.</p></div><button className="icon-button" onClick={onClose} aria-label="Đóng"><Icon name="close" /></button></div><form onSubmit={onSubmit}><label className="form-field full-field">Họ và tên bé <span>*</span><input name="name" required placeholder="Ví dụ: Nguyễn Minh Anh" autoFocus /></label><div className="form-row"><label className="form-field">Lớp học<select name="classroom"><option>Mầm 1</option><option>Mầm 2</option><option>Chồi 1</option><option>Chồi 2</option><option>Lá 1</option><option>Lá 2</option></select></label><label className="form-field">Độ tuổi<select name="age"><option value="3">3 tuổi</option><option value="4">4 tuổi</option><option value="5">5 tuổi</option><option value="6">6 tuổi</option></select></label></div><label className="form-field full-field">Phụ huynh <input name="parent" placeholder="Tên phụ huynh" /></label><div className="form-row"><label className="form-field">Số điện thoại<input name="phone" type="tel" placeholder="09xx xxx xxx" /></label><label className="form-field">Giới tính<select name="gender"><option>Nam</option><option>Nữ</option></select></label></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Để sau</button><button type="submit" className="primary-button"><Icon name="plus" size={17} /> Thêm học sinh</button></div></form></section></div>;
+function ParentAccountSelect({ token, record }) {
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccount, setSelectedAccount] = useState(record?.parentUserId ? {
+    userId: record.parentUserId,
+    username: record.parentEmail || '',
+    name: record.parent || record.parentEmail || 'Phụ huynh đã chọn',
+  } : null);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const cursor = useRef(null);
+  const requestId = useRef(0);
+
+  useEffect(() => {
+    const activeRequest = ++requestId.current;
+    cursor.current = null;
+    setAccounts([]);
+    setHasMore(true);
+    const timeout = window.setTimeout(async () => {
+      setLoading(true);
+      try {
+        const result = await getUsers(token, {
+          role: 'PARENT',
+          search: search.trim() || undefined,
+        });
+        if (activeRequest !== requestId.current) return;
+        setAccounts(result);
+        cursor.current = result[result.length - 1]?.sequence ?? null;
+        setHasMore(result.length === 10 && cursor.current != null);
+      } catch (error) {
+        if (activeRequest === requestId.current) {
+          toast.error(`Không thể tìm phụ huynh: ${error.message}`);
+        }
+      } finally {
+        if (activeRequest === requestId.current) setLoading(false);
+      }
+    }, search ? 250 : 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [token, search]);
+
+  async function loadMoreParents() {
+    if (loading || loadingMore || !hasMore || cursor.current == null) return;
+    setLoadingMore(true);
+    try {
+      const nextAccounts = await getUsers(token, {
+        role: 'PARENT',
+        search: search.trim() || undefined,
+        sequence: cursor.current,
+      });
+      setAccounts((current) => [...current, ...nextAccounts]);
+      cursor.current = nextAccounts[nextAccounts.length - 1]?.sequence ?? null;
+      setHasMore(nextAccounts.length === 10 && cursor.current != null);
+    } catch (error) {
+      toast.error(`Không thể tải thêm phụ huynh: ${error.message}`);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const visibleAccounts = selectedAccount && !accounts.some((account) => account.userId === selectedAccount.userId)
+    ? [selectedAccount, ...accounts]
+    : accounts;
+  const options = visibleAccounts.map((account) => ({
+    value: account.userId,
+    label: `${account.name} (${account.username})`,
+    account,
+  }));
+
+  function selectParent(userId, option) {
+    const account = option?.account || null;
+    setSelectedAccount(account);
+  }
+
+  return <>
+    <Select
+      showSearch
+      allowClear
+      value={selectedAccount?.userId}
+      options={options}
+      filterOption={false}
+      onSearch={setSearch}
+      onChange={selectParent}
+      onPopupScroll={(event) => {
+        const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 32) loadMoreParents();
+      }}
+      loading={loading || loadingMore}
+      notFoundContent={loading ? 'Đang tìm phụ huynh...' : 'Không tìm thấy phụ huynh'}
+      placeholder="Gõ tên, email hoặc số điện thoại phụ huynh"
+      style={{ width: '100%' }}
+    />
+    <input type="hidden" name="parentUserId" value={selectedAccount?.userId || ''} />
+  </>;
+}
+
+function StudentModal({ token, record, parentMode = false, onClose, onSubmit }) {
+  return <Modal
+    open
+    centered
+    width={470}
+    className="student-modal"
+    title={<div className="modal-header"><div><p className="eyebrow">{parentMode ? 'KHAI BÁO THÔNG TIN CON' : 'HỒ SƠ HỌC SINH'}</p><h2>{record ? 'Cập nhật hồ sơ học sinh' : parentMode ? 'Khai báo con' : 'Thêm học sinh mới'}</h2><p>{record ? 'Chỉnh sửa thông tin hồ sơ của bé.' : parentMode ? 'Nhà trường sẽ xếp lớp sau khi xác nhận hồ sơ.' : 'Điền một vài thông tin cơ bản của bé nhé.'}</p></div></div>}
+    footer={null}
+    onCancel={onClose}
+    destroyOnClose
+  >
+    <form onSubmit={onSubmit}>
+      <label className="form-field full-field">Họ và tên bé <span>*</span><input name="name" required defaultValue={record?.name || ''} placeholder="Ví dụ: Nguyễn Minh Anh" autoFocus /></label>
+      {!parentMode && <div className="form-row">
+        <label className="form-field">Lớp học<select name="classroom" defaultValue={record?.classroom || 'Mầm 1'}><option>Mầm 1</option><option>Mầm 2</option><option>Chồi 1</option><option>Chồi 2</option><option>Lá 1</option><option>Lá 2</option></select></label>
+        <label className="form-field">Độ tuổi<select name="age" defaultValue={record?.age || 3}><option value="3">3 tuổi</option><option value="4">4 tuổi</option><option value="5">5 tuổi</option><option value="6">6 tuổi</option></select></label>
+      </div>}
+      {parentMode && <label className="form-field full-field">Độ tuổi<select name="age" defaultValue={record?.age || 3}><option value="3">3 tuổi</option><option value="4">4 tuổi</option><option value="5">5 tuổi</option><option value="6">6 tuổi</option></select></label>}
+      {!parentMode && <label className="form-field full-field">Phụ huynh
+        <ParentAccountSelect token={token} record={record} />
+      </label>}
+      <div className="form-row">
+        <label className="form-field">Số điện thoại<input name="phone" type="tel" defaultValue={record?.phone === 'Chưa cập nhật' ? '' : record?.phone || ''} placeholder="09xx xxx xxx" /></label>
+        <label className="form-field">Giới tính<select name="gender" defaultValue={record?.gender || 'Nam'}><option>Nam</option><option>Nữ</option></select></label>
+      </div>
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Hủy</button><button type="submit" className="primary-button"><Icon name={record ? 'check' : 'plus'} size={17} /> {record ? 'Lưu thay đổi' : 'Thêm học sinh'}</button></div>
+    </form>
+  </Modal>;
 }
 
 export default App;

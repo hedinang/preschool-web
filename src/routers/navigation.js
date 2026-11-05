@@ -4,6 +4,7 @@ export const allNavGroups = [
     { id: 'students', label: 'Học sinh', icon: 'users' },
     { id: 'teachers', label: 'Giáo viên', icon: 'graduation' },
     { id: 'parents', label: 'Phụ huynh', icon: 'family' },
+    { id: 'users', label: 'Quản lý tài khoản', icon: 'users' },
     { id: 'classes', label: 'Lớp học', icon: 'book' },
     { id: 'schedule', label: 'Thời khóa biểu', icon: 'calendar' },
     { id: 'attendance', label: 'Điểm danh', icon: 'check' },
@@ -13,8 +14,7 @@ export const allNavGroups = [
 ];
 
 export const rolePages = {
-  admin: ['overview', 'students', 'teachers', 'parents', 'classes', 'schedule', 'attendance', 'tuition', 'messages'],
+  admin: ['overview', 'students', 'users', 'classes', 'schedule', 'attendance', 'tuition', 'messages'],
   teacher: ['overview', 'students', 'classes', 'schedule', 'attendance', 'messages'],
-  parent: ['overview', 'schedule', 'tuition', 'messages'],
-  student: ['overview', 'schedule', 'messages'],
+  parent: ['overview', 'students', 'schedule', 'tuition', 'messages'],
 };

@@ -6,13 +6,14 @@ const SchoolDataContext = createContext(null);
 export function SchoolDataProvider({ children }) {
   const [data, setData] = useState({});
   const [dataPageKey, setDataPageKey] = useState('');
+  const [pageRevisions, setPageRevisions] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const cache = useRef(new Map());
   const requests = useRef(new Map());
 
   return (
-    <SchoolDataContext.Provider value={{ data, setData, dataPageKey, setDataPageKey, loading, setLoading, error, setError, cache, requests }}>
+    <SchoolDataContext.Provider value={{ data, setData, dataPageKey, setDataPageKey, pageRevisions, setPageRevisions, loading, setLoading, error, setError, cache, requests }}>
       {children}
     </SchoolDataContext.Provider>
   );
@@ -23,7 +24,7 @@ export function usePageData(page, token, user, sequence = null, filter = '') {
   if (!context) {
     throw new Error('usePageData must be used within a SchoolDataProvider');
   }
-  const { data, setData, dataPageKey, setDataPageKey, loading, setLoading, error, setError, cache, requests } = context;
+  const { data, setData, dataPageKey, setDataPageKey, pageRevisions, setPageRevisions, loading, setLoading, error, setError, cache, requests } = context;
   const identity = user ? `${token}:${user.id || user.email || user.role}` : '';
   const previousIdentity = useRef(identity);
 
@@ -34,9 +35,10 @@ export function usePageData(page, token, user, sequence = null, filter = '') {
     requests.current.clear();
     setData({});
     setDataPageKey('');
+    setPageRevisions({});
     setError('');
     setLoading(false);
-  }, [identity, cache, setData, setDataPageKey, setError, setLoading]);
+  }, [identity, cache, setData, setDataPageKey, setPageRevisions, setError, setLoading]);
 
   useEffect(() => {
     if (!token || !user) return undefined;
@@ -82,14 +84,23 @@ export function usePageData(page, token, user, sequence = null, filter = '') {
     return () => {
       active = false;
     };
-  }, [identity, page, token, user, sequence, filter, cache, requests, setData, setDataPageKey, setLoading, setError]);
+  }, [identity, page, token, user, sequence, filter, pageRevisions[page] || 0, cache, requests, setData, setDataPageKey, setLoading, setError]);
 
   function invalidate(...pages) {
     pages.forEach((pageId) => {
       for (const key of cache.current.keys()) {
         if (key.startsWith(`${identity}:${pageId}:`)) cache.current.delete(key);
       }
+      for (const key of requests.current.keys()) {
+        if (key.startsWith(`${identity}:${pageId}:`)) requests.current.delete(key);
+      }
     });
+    if (pages.length) {
+      setPageRevisions((current) => pages.reduce(
+        (revisions, pageId) => ({ ...revisions, [pageId]: (revisions[pageId] || 0) + 1 }),
+        current,
+      ));
+    }
   }
 
   return { data, dataPageKey, loading, error, invalidate };

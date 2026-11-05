@@ -7,11 +7,13 @@ import { loadSchedule } from '../pages/schedule/data';
 import { loadStudents } from '../pages/students/data';
 import { loadTeachers } from '../pages/teachers/data';
 import { loadTuition } from '../pages/tuition/data';
+import { loadUsers } from '../pages/users/data';
 
 export const pageLoaders = {
   overview: loadOverview,
   students: loadStudents,
   teachers: loadTeachers,
+  users: loadUsers,
   parents: loadParents,
   classes: loadClasses,
   schedule: loadSchedule,

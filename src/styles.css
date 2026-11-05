@@ -224,6 +224,11 @@ tbody tr:last-child td { border-bottom: 0; }
 .preschool-table .class-tag, .preschool-table .status-pill { font-size: 12px; }
 .preschool-table .ant-empty-description { color: #7d8980; font-size: 14px; }
 .preschool-table .ant-pagination .ant-pagination-item a { font-size: 13px; }
+.row-actions { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.row-actions button { padding: 5px 8px; border: 1px solid #e8ede7; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer; }
+.row-actions .row-action-edit { color: #52775b; }
+.row-actions .row-action-delete { border-color: #f0dfda; color: #b35f50; }
+.current-account-label { color: #8b978e; font-size: 12px; white-space: nowrap; }
 .server-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 15px; color: #7d8980; font-size: 13px; }
 .server-pagination button { padding: 7px 12px; border: 1px solid #e9eee8; border-radius: 6px; color: #6b7b70; background: #fff; cursor: pointer; }
 .server-pagination button:disabled { color: #aab3ab; background: #f8f9f7; cursor: not-allowed; }
@@ -304,10 +309,12 @@ tbody tr:last-child td { border-bottom: 0; }
 .message-foot > span, .message-foot > button { display: inline-flex; align-items: center; gap: 5px; color: #9ba69d; font-size: 8px; }
 .message-foot > button { padding: 0; border: 0; color: #66876c; background: none; font-weight: 700; }
 
-.modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: #20372d75; backdrop-filter: blur(3px); }
-.student-modal { width: min(100%, 470px); padding: 23px; border: 1px solid #e9eee8; border-radius: 13px; background: white; box-shadow: 0 20px 60px #20372d30; animation: modal-in .18s ease-out; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
-.modal-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.student-modal .ant-modal-content { padding: 23px; border: 1px solid #e9eee8; border-radius: 13px; box-shadow: 0 20px 60px #20372d30; }
+.student-modal .ant-modal-header { margin-bottom: 20px; padding: 0; background: transparent; }
+.student-modal .ant-modal-title { font-weight: 400; }
+.student-modal .ant-modal-body { padding: 0; }
+.student-modal .modal-header { display: flex; align-items: flex-start; justify-content: space-between; }
 .modal-header h2 { margin: 0; color: #304638; font-family: 'Nunito Sans', sans-serif; font-size: 20px; }
 .modal-header > div > p:last-child { margin: 5px 0 0; color: #909c93; font-size: 10px; }
 .student-modal .eyebrow { margin-bottom: 6px; }
@@ -320,8 +327,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .form-field input::placeholder { color: #b0b9b1; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; padding-top: 15px; border-top: 1px solid #eff1ed; }
 .secondary-button { height: 38px; padding: 0 14px; border: 1px solid #e9ede8; border-radius: 7px; color: #718077; background: white; font-size: 10px; font-weight: 600; }
-.toast { position: fixed; z-index: 60; right: 26px; bottom: 24px; display: flex; align-items: center; gap: 9px; max-width: calc(100vw - 32px); padding: 11px 15px 11px 11px; border: 1px solid #e6ede5; border-radius: 8px; color: #526457; background: white; box-shadow: 0 8px 25px #26392d18; font-size: 10px; animation: modal-in .18s ease-out; }
-.toast-check { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; color: #63866a; background: #edf5ec; }
+.Toastify__toast { border-radius: 8px; font-family: inherit; font-size: 13px; }
 .mobile-backdrop { display: none; }
 
 @media (min-width: 1500px) {

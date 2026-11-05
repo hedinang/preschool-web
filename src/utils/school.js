@@ -16,7 +16,10 @@ export function mapStudent(student, attendance = {}) {
     age: student.age || 0,
     parent: student.parent || 'Phụ huynh',
     phone: student.phone || 'Chưa cập nhật',
-    status: attendance.status || student.status || pendingAttendance,
+    status: attendance.status
+      || (['ACTIVE', 'INACTIVE', 'DELETED'].includes((student.status || '').toUpperCase())
+        ? pendingAttendance
+        : student.status || pendingAttendance),
     avatar: student.avatar || (initials.length > 1
       ? `${initials[0][0]}${initials[initials.length - 1][0]}`
       : name.slice(0, 2)).toLocaleUpperCase('vi-VN'),

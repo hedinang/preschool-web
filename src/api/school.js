@@ -10,6 +10,7 @@ import {
   STUDENT,
   TEACHER,
   TUITION,
+  USER,
 } from './apiConstant';
 
 function listBody(params = {}) {
@@ -24,6 +25,15 @@ function listBody(params = {}) {
 export const getStudents = (token, params) =>
   apiRequest(`${STUDENT}/list`, { token, method: 'POST', body: listBody(params) });
 
+export const createStudent = (token, student) =>
+  apiRequest(STUDENT, { token, method: 'POST', body: student });
+
+export const updateStudent = (token, id, student) =>
+  apiRequest(`${STUDENT}/${encodeURIComponent(id)}`, { token, method: 'PUT', body: student });
+
+export const deleteStudent = (token, id) =>
+  apiRequest(`${STUDENT}/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
+
 export const getAttendance = (token, date, params) => {
   return apiRequest(`${ATTENDANCE}/list`, {
     token,
@@ -37,6 +47,27 @@ export const getParents = (token, params) =>
 
 export const getTeachers = (token, params) =>
   apiRequest(`${TEACHER}/list`, { token, method: 'POST', body: listBody(params) });
+
+export const createTeacher = (token, teacher) =>
+  apiRequest(TEACHER, { token, method: 'POST', body: teacher });
+
+export const updateTeacher = (token, id, teacher) =>
+  apiRequest(`${TEACHER}/${encodeURIComponent(id)}`, { token, method: 'PUT', body: teacher });
+
+export const deleteTeacher = (token, id) =>
+  apiRequest(`${TEACHER}/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
+
+export const getUsers = (token, params) =>
+  apiRequest(`${USER}/list`, { token, method: 'POST', body: listBody(params) });
+
+export const createUser = (token, user) =>
+  apiRequest(USER, { token, method: 'POST', body: user });
+
+export const updateUser = (token, id, user) =>
+  apiRequest(`${USER}/${encodeURIComponent(id)}`, { token, method: 'PUT', body: user });
+
+export const deleteUser = (token, id) =>
+  apiRequest(`${USER}/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
 
 export const getClasses = (token, params) =>
   apiRequest(`${CLASSROOM}/list`, { token, method: 'POST', body: listBody(params) });
