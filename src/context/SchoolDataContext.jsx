@@ -66,7 +66,9 @@ export function usePageData(page, token, user, sequence = null, filter = '') {
 
     request
       .then((result) => {
-        cache.current.set(cacheKey, result);
+        if (requests.current.get(cacheKey) === request) {
+          cache.current.set(cacheKey, result);
+        }
         if (active) {
           setData(result.data);
           setDataPageKey(cacheKey);

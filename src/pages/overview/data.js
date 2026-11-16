@@ -1,7 +1,6 @@
 import {
   getAttendance,
   getDashboardSummary,
-  getStudents,
 } from '../../api/school';
 import { getLocalDate } from '../../utils/school';
 import { resolvePageRequests } from '../resolvePageRequests';
@@ -9,7 +8,7 @@ import { resolvePageRequests } from '../resolvePageRequests';
 export async function loadOverview({ token, user }) {
   const date = getLocalDate();
   const month = date.slice(0, 7);
-  const requests = { students: getStudents(token) };
+  const requests = {};
 
   if (user.role === 'admin' || user.role === 'teacher') {
     requests.attendanceRecords = getAttendance(token, date);

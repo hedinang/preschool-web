@@ -14,7 +14,7 @@ export function mapStudent(student, attendance = {}) {
     ...student,
     gender: student.gender || '',
     age: student.age || 0,
-    parent: student.parent || 'Phụ huynh',
+    parent: student.parentName || student.parent || 'Phụ huynh',
     phone: student.phone || 'Chưa cập nhật',
     status: attendance.status
       || (['ACTIVE', 'INACTIVE', 'DELETED'].includes((student.status || '').toUpperCase())

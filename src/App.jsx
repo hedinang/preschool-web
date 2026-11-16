@@ -22,46 +22,6 @@ import {
   updateTeacher,
 } from './api/school';
 
-const initialStudents = [
-  { name: 'Nguyễn Minh Khôi', gender: 'Nam', age: 4, classroom: 'Mầm 1', parent: 'Chị Ngọc Anh', phone: '0912 345 678', status: 'Đã đến', avatar: 'MK', color: 'peach' },
-  { name: 'Trần Bảo Ngọc', gender: 'Nữ', age: 3, classroom: 'Chồi 2', parent: 'Anh Tuấn Minh', phone: '0987 123 456', status: 'Đã đến', avatar: 'BN', color: 'lilac' },
-  { name: 'Lê Gia Hân', gender: 'Nữ', age: 5, classroom: 'Lá 1', parent: 'Chị Thanh Hà', phone: '0903 456 789', status: 'Đã đến', avatar: 'GH', color: 'mint' },
-  { name: 'Phạm Đức Anh', gender: 'Nam', age: 4, classroom: 'Mầm 2', parent: 'Anh Hoàng Nam', phone: '0934 567 890', status: 'Đã đến', avatar: 'ĐA', color: 'blue' },
-  { name: 'Vũ Khánh Linh', gender: 'Nữ', age: 3, classroom: 'Chồi 1', parent: 'Chị Mỹ Linh', phone: '0978 234 567', status: 'Xin nghỉ', avatar: 'KL', color: 'yellow' },
-  { name: 'Đỗ Nhật Nam', gender: 'Nam', age: 5, classroom: 'Lá 2', parent: 'Anh Nhật Quang', phone: '0918 765 432', status: 'Đã đến', avatar: 'NN', color: 'pink' },
-];
-
-const additionalStudentNames = [
-  'Nguyễn Minh Châu', 'Trần Đức Minh', 'Lê Bảo Anh', 'Phạm Khánh An', 'Vũ Minh Nhật', 'Đỗ Ngọc Mai',
-  'Nguyễn Gia Bảo', 'Trần Hà My', 'Lê Hoàng Long', 'Phạm Ngọc Diệp', 'Vũ Tuệ Nhi', 'Đỗ Quang Huy',
-  'Nguyễn Hải Đăng', 'Trần Minh Khang', 'Lê Phương Thảo', 'Phạm Thiên An', 'Vũ Anh Thư', 'Đỗ Gia Linh',
-  'Nguyễn Quốc Bảo', 'Trần Ánh Dương', 'Lê Nhật Minh', 'Phạm Quỳnh Chi', 'Vũ Đức Mạnh', 'Đỗ Minh Tâm',
-  'Nguyễn Khánh Vy', 'Trần Gia Huy', 'Lê Thiên Phúc', 'Phạm Bảo Trâm', 'Vũ Minh Quân', 'Đỗ Phương Nhi',
-  'Nguyễn Tuấn Kiệt', 'Trần Ngọc Hà', 'Lê Gia Minh', 'Phạm Hoàng Yến', 'Vũ Bảo Châu', 'Đỗ Anh Khoa',
-  'Nguyễn Hà Linh', 'Trần Nhật Hào', 'Lê Minh Thư', 'Phạm Gia Hân', 'Vũ Quốc Khánh', 'Đỗ Thanh Tâm',
-];
-
-const extraStudents = additionalStudentNames.map((name, index) => {
-  const parts = name.split(/\s+/);
-  const initials = `${parts[0][0]}${parts[parts.length - 1][0]}`.toLocaleUpperCase('vi-VN');
-  const rooms = ['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'];
-  const parentNames = ['Chị Thu Hà', 'Anh Minh Quân', 'Chị Phương Linh', 'Anh Hoàng Long', 'Chị Bảo Trân', 'Anh Quốc Bảo'];
-  const phone = `09${String(10 + (index % 90)).padStart(2, '0')} ${String(120 + index).padStart(3, '0')} ${String(400 + index).slice(-3)}`;
-  return {
-    name,
-    gender: index % 2 === 0 ? 'Nam' : 'Nữ',
-    age: 3 + (index % 3),
-    classroom: rooms[index % rooms.length],
-    parent: `${parentNames[index % parentNames.length]} ${Math.floor(index / parentNames.length) + 1}`,
-    phone,
-    status: index % 7 === 0 ? 'Xin nghỉ' : 'Đã đến',
-    avatar: initials,
-    color: ['peach', 'lilac', 'mint', 'blue', 'yellow', 'pink'][index % 6],
-  };
-});
-
-initialStudents.push(...extraStudents);
-
 const teachers = [
   { name: 'Mai Phương', title: 'Giáo viên chủ nhiệm', classroom: 'Mầm 1', phone: '0901 234 567', email: 'maiphuong@annhien.vn', experience: '6 năm', avatar: 'MP', color: 'mint' },
   { name: 'Thu Hằng', title: 'Giáo viên chủ nhiệm', classroom: 'Mầm 2', phone: '0902 345 678', email: 'thuhang@annhien.vn', experience: '5 năm', avatar: 'TH', color: 'peach' },
@@ -197,7 +157,7 @@ function App() {
 
 function PreschoolApp() {
   const [page, setPage] = useState('overview');
-  const [students, setStudents] = useState(initialStudents);
+  const [students, setStudents] = useState([]);
   const [teacherList, setTeacherList] = useState(teachers);
   const [managedUsers, setManagedUsers] = useState([]);
   const [classrooms, setClassrooms] = useState(null);
@@ -320,6 +280,7 @@ function PreschoolApp() {
         body: { username: loginEmail.trim(), password: loginPassword },
       });
       if (!response?.token) throw new Error('Phản hồi đăng nhập không có token');
+      setStudents([]);
       const account = demoAccounts[loginRole];
       const { password: _demoPassword, ...demoProfile } = account;
       setApiToken(response.token);
@@ -346,6 +307,7 @@ function PreschoolApp() {
   function signOut() {
     setApiToken('');
     setUser(null);
+    setStudents([]);
     setPage('overview');
     setListPage(1);
     setListCursors({});
@@ -467,7 +429,7 @@ function PreschoolApp() {
     const userRequest = {
       name: form.get('name').toString().trim(),
       role: form.get('role').toString(),
-      title: form.get('title').toString().trim(),
+      title: form.get('title')?.toString().trim() || '',
       classroom: form.get('classroom')?.toString() || '',
       phone: form.get('phone')?.toString().trim() || '',
       phone2: form.get('phone2')?.toString().trim() || '',
@@ -554,6 +516,10 @@ function PreschoolApp() {
 
   function changePage(nextPage) {
     if (!allowedPages.includes(nextPage)) return;
+    if (nextPage === 'students') {
+      setStudents([]);
+      invalidate('students');
+    }
     setPage(nextPage);
     setListPage(1);
     setListCursors({});
@@ -892,6 +858,8 @@ function TeacherModal({ record, onClose, onSubmit }) {
 }
 
 function UserModal({ record, onClose, onSubmit }) {
+  const [role, setRole] = useState((record?.role || 'PARENT').toUpperCase());
+
   return <Modal
     open
     centered
@@ -905,16 +873,16 @@ function UserModal({ record, onClose, onSubmit }) {
     <form onSubmit={onSubmit}>
       {!record && <label className="form-field full-field">Email đăng nhập <span>*</span><input type="email" name="username" required autoComplete="off" placeholder="ten@annhien.vn" /></label>}
       <label className="form-field full-field">Họ và tên <span>*</span><input name="name" required defaultValue={record?.name || ''} placeholder="Họ và tên" /></label>
+      <label className="form-field full-field">Giới tính<select name="gender" defaultValue={record?.gender || ''}><option value="">Chọn giới tính</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option><option value="Khác">Khác</option></select></label>
       <div className="form-row">
-        <label className="form-field">Giới tính<select name="gender" defaultValue={record?.gender || ''}><option value="">Chọn giới tính</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option><option value="Khác">Khác</option></select></label>
         <label className="form-field">Số điện thoại 1<input name="phone" type="tel" defaultValue={record?.phone || ''} placeholder="09xx xxx xxx" /></label>
-      </div>
-      <div className="form-row">
         <label className="form-field">Số điện thoại 2<input name="phone2" type="tel" defaultValue={record?.phone2 || ''} placeholder="09xx xxx xxx" /></label>
-        <label className="form-field">Chức danh<input name="title" defaultValue={record?.title || ''} placeholder="Ví dụ: Giáo viên chủ nhiệm" /></label>
       </div>
-      <label className="form-field full-field">Vai trò<select name="role" defaultValue={record?.role || 'PARENT'}><option value="ADMIN">Quản trị viên</option><option value="TEACHER">Giáo viên</option><option value="PARENT">Phụ huynh</option></select></label>
-      <label className="form-field full-field">Lớp phụ trách (dành cho giáo viên)<select name="classroom" defaultValue={record?.classroom || ''}><option value="">Chưa phân công</option>{['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'].map((room) => <option key={room}>{room}</option>)}</select></label>
+      <label className="form-field full-field">Vai trò<select name="role" value={role} onChange={(event) => setRole(event.target.value)}><option value="ADMIN">Quản trị viên</option><option value="TEACHER">Giáo viên</option><option value="PARENT">Phụ huynh</option></select></label>
+      {role === 'TEACHER' && <div className="form-row">
+        <label className="form-field">Chức danh<input name="title" defaultValue={record?.title || ''} placeholder="Ví dụ: Giáo viên chủ nhiệm" /></label>
+        <label className="form-field">Lớp phụ trách<select name="classroom" defaultValue={record?.classroom || ''}><option value="">Chưa phân công</option>{['Mầm 1', 'Mầm 2', 'Chồi 1', 'Chồi 2', 'Lá 1', 'Lá 2'].map((room) => <option key={room}>{room}</option>)}</select></label>
+      </div>}
       <label className="form-field full-field">Địa chỉ thường trú<input name="address" defaultValue={record?.address || ''} placeholder="Số nhà, đường, phường/xã, tỉnh/thành" /></label>
       <label className="form-field full-field">{record ? 'Mật khẩu mới (để trống nếu không đổi)' : 'Mật khẩu'}<input type="password" name="password" required={!record} minLength={6} autoComplete="new-password" placeholder={record ? 'Ít nhất 6 ký tự' : 'Ít nhất 6 ký tự'} /></label>
       <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Hủy</button><button type="submit" className="primary-button"><Icon name={record ? 'check' : 'plus'} size={17} /> {record ? 'Lưu thay đổi' : 'Tạo tài khoản'}</button></div>
@@ -986,7 +954,6 @@ function StudentTable({ students, compact = false, pageNumber, onPageChange, has
     { title: 'HỌC SINH', dataIndex: 'name', key: 'name', render: (_, student) => <div className="student-cell"><Avatar initials={student.avatar} color={student.color} /><span><strong>{student.name}</strong><small>{student.gender} · {student.age} tuổi</small></span></div> },
     { title: 'LỚP', dataIndex: 'classroom', key: 'classroom', render: (classroom) => <span className="class-tag">{classroom}</span> },
     !compact && { title: 'PHỤ HUYNH', dataIndex: 'parent', key: 'parent' },
-    !compact && { title: 'PARENT ID', dataIndex: 'parentUserId', key: 'parentUserId', render: (parentUserId) => parentUserId || '—' },
     { title: 'TRẠNG THÁI', dataIndex: 'status', key: 'status', render: (status) => <span className={`status-pill ${status === 'Đã đến' ? 'status-present' : status === 'Xin nghỉ' ? 'status-absent' : 'status-pending'}`}><i />{status}</span> },
     !compact && { title: 'LIÊN HỆ', dataIndex: 'phone', key: 'phone' },
     !compact && (canEdit || canDelete) && { title: 'THAO TÁC', key: 'actions', render: (_, student) => <div className="row-actions">
